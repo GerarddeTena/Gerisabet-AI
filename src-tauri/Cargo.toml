@@ -1,0 +1,25 @@
+[package]
+name = "gerisabetai"
+version = "0.0.0"
+description = "A Tauri App"
+authors = ["you"]
+edition = "2021"
+
+# Importante para que Tauri funcione en móvil y escritorio
+[lib]
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# Dependencias de compilación
+[build-dependencies]
+tauri-build = { version = "2.0.0", features = [] }
+
+# TUS LIBRERÍAS (Aquí estaba el fallo)
+[dependencies]
+tauri = { version = "2.0.0", features = [] }
+tauri-plugin-opener = "2.0.0" # Plugin básico de Tauri v2
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.13.1", features = ["json"] } # Faltaba esta
+tokio = { version = "1", features = ["full"] }      # Faltaba esta
+glob = "0.3"                                        # Faltaba esta
+pdf-extract = "0.10"                                 # Faltaba esta
