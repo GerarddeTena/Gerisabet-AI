@@ -1,5 +1,14 @@
-import { Form } from "./form/Form"
+import "@styles/styles.css";
+import { Form } from "./form/Form";
+import { Title } from "@components/Title";
+import DatabaseManager from "@components/DatabaseManager";
 
 export default function App() {
-  return (<Form />)
+  return (
+    <div className="app-layout">
+      <Title />
+      <DatabaseManager />
+      <Form />
+    </div>
+  );
 }

@@ -1,42 +1,41 @@
+import "@styles/styles.css";
 import { memo, useState } from "react";
-import { InputForAi } from "./Input";
+import { InputForAi, InputSelectModel } from "./Input";
 import { invoke } from "@tauri-apps/api/core";
-import { ChatMessage } from "../dashboard/Displayer";
-import ChatHistory from "../dashboard/History";
+import { ChatMessage, DisplayResponses } from "../dashboard/Displayer";
 
 const Form = memo(() => {
-
   const [question, setQuestion] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [selectModel, setSelectModel] = useState<string>("qwen2.5-coder:3b");
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!question.trim()) return;
 
     const currentQuestion = question;
-    setQuestion(""); // Limpiamos input inmediatamente para mejor UX
+    setQuestion("");
     setIsLoading(true);
 
-    // 1. Añadimos la pregunta del usuario al store visualmente YA
     const userMsg: ChatMessage = {
       id: Date.now(),
       role: "user",
-      text: currentQuestion
+      text: currentQuestion,
     };
-    setChatHistory(prev => [...prev, userMsg]);
+    setChatHistory((prev) => [...prev, userMsg]);
 
     try {
-      // 2. Llamada al Backend (Rust)
-      const response = await invoke<string>("ask_gerisabet", { question: currentQuestion });
-
-      // 3. Añadimos la respuesta de la IA al store
+      const response = await invoke<string>("ask_gerisabet", {
+        question: currentQuestion,
+        model: selectModel,
+      });
       const aiMsg: ChatMessage = {
         id: Date.now() + 1,
         role: "ai",
-        text: response
+        text: response,
       };
-      setChatHistory(prev => [...prev, aiMsg]);
-
+      setChatHistory((prev) => [...prev, aiMsg]);
     } catch (error) {
       console.error(error);
     } finally {
@@ -46,17 +45,35 @@ const Form = memo(() => {
 
   return (
     <>
-      <div>
-        <ChatHistory chatHistory={chatHistory} />
+      <div className="model-bar">
+        <label htmlFor="model-select">Model:</label>
+        <InputSelectModel
+          model={selectModel}
+          changeEvent={(e) => setSelectModel(e.target.value)}
+        />
       </div>
-      <div>
+
+      <DisplayResponses history={chatHistory} isLoading={isLoading} />
+
+      <div className="chat-form-area">
         <form onSubmit={handleSubmit}>
-          <InputForAi msg={question} changeEvent={(e) => setQuestion(e.target.value)} />
-          <button type="submit" className="question-button">{isLoading ? "Thinking..." : "Ask"}</button>
+          <div className="chat-input-row">
+            <InputForAi
+              msg={question}
+              changeEvent={(e) => setQuestion(e.target.value)}
+            />
+            <button
+              type="submit"
+              className="question-button"
+              disabled={isLoading}
+            >
+              {isLoading ? "..." : "Ask"}
+            </button>
+          </div>
         </form>
       </div>
     </>
-  )
+  );
 });
 
 export { Form };
