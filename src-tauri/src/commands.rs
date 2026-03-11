@@ -1,49 +1,68 @@
-// Fíjate: NO usamos 'mod', usamos 'use crate::'
-use crate::embeddings::{get_embedding, cosine_similarity, generate_ollama_response};
+use crate::embeddings::{get_embedding, generate_ollama_response};
 use crate::book_finder::scan_dir;
+use crate::qdrant_db::{get_client, init_collection, upsert_chunk, search_context};
 
-const BOOK_PATH: &str = "/home/gerisabet/Documents/Prueba_Gerisabet/";
+const SIMILARITY_THRESHOLD: f32 = 0.65;
+const WORDS_PER_CHUNK: usize = 150;
+const LLM_MODEL: &str = "qwen2.5-coder:3b"; // <-- Constante añadida
 
-// Función auxiliar para cortar texto
-fn split_into_chunks(text: &str, chunk_size: usize) -> Vec<String> {
-    let chars: Vec<char> = text.chars().collect();
-    let mut chunks = Vec::new();
-    for chunk in chars.chunks(chunk_size) {
-        chunks.push(chunk.iter().collect());
-    }
-    chunks
+fn split_into_chunks(text: &str, words_per_chunk: usize) -> Vec<String> {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    words.chunks(words_per_chunk)
+         .map(|chunk| chunk.join(" "))
+         .collect()
 }
 
+// [One-time indexing] - La ingesta a Qdrant
 #[tauri::command]
-pub async fn ask_gerisabet(question: String) -> Result<String, String> {
-    println!("1. Iniciando Gerisabet para: '{}'", question);
-
-    let question_vector = get_embedding(&question).await?;
-    let library = scan_dir(BOOK_PATH); 
+pub async fn index_library(directory_path: String) -> Result<String, String> {
+    println!("Iniciando indexación de la biblioteca en Qdrant desde: {}", directory_path);
     
-    let mut ranking: Vec<(f32, String)> = Vec::new();
+    let q_client = get_client().await?;
+    init_collection(&q_client).await?;
+    
+    let library = scan_dir(&directory_path);
+    let mut total_chunks = 0;
 
     for doc in library {
-        let chunks = split_into_chunks(&doc.content, 800);
-        for chunk in chunks {
-            if let Ok(chunk_vector) = get_embedding(&chunk).await {
-                let similarity = cosine_similarity(&question_vector, &chunk_vector);
-                if similarity > 0.4 {
-                    ranking.push((similarity, chunk));
+        println!("Indexando documento: {}", doc.route);
+        let chunks = split_into_chunks(&doc.content, WORDS_PER_CHUNK);
+        
+        for (_index, chunk) in chunks.into_iter().enumerate() {
+            if let Ok(vector) = get_embedding(&chunk).await {
+                if upsert_chunk(&q_client, &chunk, &doc.route, vector).await.is_ok() {
+                    total_chunks += 1;
                 }
             }
         }
     }
+    Ok(format!("Indexación completada. {} fragmentos guardados en Qdrant.", total_chunks))
+}
 
-    ranking.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
-    let best_chunks: Vec<String> = ranking.into_iter().take(3).map(|(_, text)| text).collect();
+#[tauri::command]
+pub async fn ask_gerisabet(question: String) -> Result<String, String> { // <-- Quitamos 'model' de aquí
+    println!("Consultando base de conocimientos para: '{}'", question);
 
-    if best_chunks.is_empty() {
-        return Ok("No encontré nada en los libros sobre eso.".to_string());
+    // 1. Vectorizamos la pregunta
+    let question_vector = get_embedding(&question).await?;
+    
+    // 2. Buscamos en Qdrant
+    let q_client = get_client().await?;
+    let search_results = search_context(&q_client, question_vector, 3, SIMILARITY_THRESHOLD).await?;
+
+    if search_results.is_empty() {
+        return Ok("No encontré información relevante en los documentos para responder a tu pregunta.".to_string());
     }
 
-    let context = best_chunks.join("\n---\n");
-    let response = generate_ollama_response(question, context).await?;
+    // 3. Montamos el contexto
+    let context_strings: Vec<String> = search_results.into_iter().map(|res| {
+        format!("Fuente: {} (Relevancia: {:.2})\nContenido: {}", res.file_path, res.score, res.text)
+    }).collect();
+
+    let context = context_strings.join("\n---\n");
+    
+    // 4. Generamos respuesta pasando la constante
+    let response = generate_ollama_response(question, context, LLM_MODEL.to_string()).await?;
     
     Ok(response)
 }

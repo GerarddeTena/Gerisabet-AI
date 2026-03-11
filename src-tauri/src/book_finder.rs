@@ -1,17 +1,20 @@
 use glob::glob;
+use pdf_extract::extract_text;
+use serde::Serialize;
 use std::fs;
 use std::path::PathBuf;
-use pdf_extract::extract_text;
-use serde::Serialize; // Necesario si vas a devolver esto al frontend
 
-#[derive(Serialize, Clone)] // Añade Clone y Serialize
+// [🟡 Logic] Límite de tamaño: 50 MB
+const MAX_FILE_SIZE: u64 = 50 * 1024 * 1024;
+
+#[derive(Serialize, Clone)]
 pub struct Document {
     pub route: String,
     pub content: String,
     pub file_type: String,
 }
 
-pub fn scan_dir(base_path: &str) -> Vec<Document> { // Tipado correcto
+pub fn scan_dir(base_path: &str) -> Vec<Document> {
     let pattern = format!("{}/**/*.*", base_path);
     let mut library = Vec::new();
 
@@ -19,10 +22,10 @@ pub fn scan_dir(base_path: &str) -> Vec<Document> { // Tipado correcto
         for entry in entries {
             if let Ok(path) = entry {
                 if path.is_file() {
-                    // CORRECCIÓN: Llamada correcta a la función pasando la referencia
                     match file_process(&path) {
                         Ok(doc) => library.push(doc),
-                        Err(e) => println!("Skipping file {:?}: {}", path, e),
+                        // [🟡 Logic] Uso de eprintln! para errores
+                        Err(e) => eprintln!("Saltando archivo {:?}: {}", path, e),
                     }
                 }
             }
@@ -31,17 +34,31 @@ pub fn scan_dir(base_path: &str) -> Vec<Document> { // Tipado correcto
     library
 }
 
-fn file_process(route: &PathBuf) -> Result<Document, String> { // Tipado Result correcto
-    let extension = route.extension()
+fn file_process(route: &PathBuf) -> Result<Document, String> {
+    let extension = route
+        .extension()
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_lowercase();
 
-    // CORRECCIÓN: Punto añadido antes de map_err y comas corregidas
+    // [🟡 Logic] File size guard
+    if let Ok(metadata) = fs::metadata(route) {
+        if metadata.len() > MAX_FILE_SIZE {
+            return Err(format!(
+                "Archivo supera el límite de 50MB ({} bytes)",
+                metadata.len()
+            ));
+        }
+    } else {
+        return Err("No se pudieron leer los metadatos del archivo".to_string());
+    }
+
     let content = match extension.as_str() {
-        "pdf" => extract_text(route).map_err(|_| "corrupted PDF".to_string())?,
-        "ts" | "cs" | "md" | "txt" => fs::read_to_string(route).map_err(|_| "Error lectura".to_string())?,
-        _ => return Err("Unsupported format".to_string()),
+        "pdf" => extract_text(route).map_err(|_| "PDF corrupto o protegido".to_string())?,
+        "ts" | "cs" | "md" | "txt" => {
+            fs::read_to_string(route).map_err(|_| "Error de lectura de texto".to_string())?
+        }
+        _ => return Err("Formato no soportado".to_string()),
     };
 
     Ok(Document {

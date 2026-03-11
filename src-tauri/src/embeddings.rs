@@ -1,7 +1,23 @@
-use serde::{Deserialize, Serialize};
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
+use std::time::Duration;
 
-// --- STRUCTS FOR EMBEDDINGS ---
+// [🟢 Minor] Nombres de modelos como constantes
+const EMBEDDING_MODEL: &str = "nomic-embed-text";
+
+// [🔴 Critical] Cliente HTTP global y reutilizable con [🟡 Logic] Timeout
+static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
+
+fn get_http_client() -> &'static Client {
+    HTTP_CLIENT.get_or_init(|| {
+        Client::builder()
+            .timeout(Duration::from_secs(120)) // Timeout de 2 min para dar tiempo al LLM
+            .build()
+            .expect("Fallo al inicializar el cliente HTTP")
+    })
+}
+
 #[derive(Serialize)]
 struct EmbeddingRequest {
     model: String,
@@ -13,11 +29,11 @@ struct EmbeddingResponse {
     embedding: Vec<f32>,
 }
 
-// --- STRUCTS FOR CHAT GENERATION ---
 #[derive(Serialize)]
 struct GenerateRequest {
     model: String,
     prompt: String,
+    system: String, // Añadimos el campo system
     stream: bool,
 }
 
@@ -26,59 +42,50 @@ struct GenerateResponse {
     response: String,
 }
 
-// 1. Vector Function (Renamed)
 pub async fn get_embedding(text: &str) -> Result<Vec<f32>, String> {
-    let client = Client::new();
-    
-    let res = client.post("http://localhost:11434/api/embeddings")
+    let client = get_http_client();
+
+    let res = client
+        .post("http://localhost:11434/api/embeddings")
         .json(&EmbeddingRequest {
-            model: "nomic-embed-text".to_string(),
+            model: EMBEDDING_MODEL.to_string(),
             prompt: text.to_string(),
         })
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Error HTTP Embeddings: {}", e))?;
 
     let data: EmbeddingResponse = res.json().await.map_err(|e| e.to_string())?;
     Ok(data.embedding)
 }
 
-// 2. Chat Function (Renamed)
-pub async fn generate_ollama_response(question: String, context: String) -> Result<String, String> {
-    let client = Client::new();
-    
-    // Inject context into the prompt
-    let final_prompt = format!("Context:\n{}\n\nUser: {}", context, question);
+pub async fn generate_ollama_response(
+    question: String,
+    context: String,
+    model: String,
+) -> Result<String, String> {
+    let client = get_http_client();
 
-    let res = client.post("http://localhost:11434/api/generate")
+    // [🟡 Logic] System prompt para asentar ("grounding") al LLM
+    let system_prompt = "Eres Gerisabet AI, un asistente experto. Utiliza ÚNICAMENTE la información proporcionada en el contexto para responder a la pregunta del usuario. Si la respuesta no está en el contexto, di claramente que no tienes esa información. No inventes datos ni utilices conocimiento externo.".to_string();
+
+    let final_prompt = format!(
+        "Contexto de los documentos:\n{}\n\nPregunta del usuario: {}",
+        context, question
+    );
+
+    let res = client
+        .post("http://localhost:11434/api/generate")
         .json(&GenerateRequest {
-            model: "qwen2.5-coder:3b".to_string(),
+            model,
             prompt: final_prompt,
+            system: system_prompt,
             stream: false,
         })
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Error HTTP Generación: {}", e))?;
 
     let data: GenerateResponse = res.json().await.map_err(|e| e.to_string())?;
     Ok(data.response)
-}
-
-// 3. Math Function (Renamed)
-pub fn cosine_similarity(vec_a: &[f32], vec_b: &[f32]) -> f32 {
-    if vec_a.len() != vec_b.len() { return 0.0; }
-
-    let mut dot_product = 0.0;
-    let mut norm_a = 0.0;
-    let mut norm_b = 0.0;
-
-    for (a, b) in vec_a.iter().zip(vec_b.iter()) {
-        dot_product += a * b;
-        norm_a += a * a;
-        norm_b += b * b;
-    }
-
-    if norm_a == 0.0 || norm_b == 0.0 { return 0.0; }
-
-    dot_product / (norm_a.sqrt() * norm_b.sqrt())
 }
