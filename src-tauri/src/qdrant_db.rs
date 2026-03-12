@@ -17,7 +17,9 @@ pub struct QdrantSearchResult {
 }
 
 pub async fn get_client() -> Result<Qdrant, String> {
-    let client = Qdrant::from_url("http://localhost:6334")
+    std::env::set_var("QDRANT__CHECK_COMPATIBILITY", "false");
+
+    let client = Qdrant::from_url("http://127.0.0.1:6334")
         .build()
         .map_err(|e| format!("Error construyendo cliente: {}", e))?;
 
@@ -57,19 +59,25 @@ pub async fn upsert_chunk(
     let unique_str = format!("{}-{}", file_path, text);
     let deterministic_uuid = uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_OID, unique_str.as_bytes());
 
+    println!("UUID generado: {}", deterministic_uuid.to_string());
+    println!("Vector size: {}", vector.len());
+    println!("Payload keys: {:?}", payload.keys().collect::<Vec<_>>());
+
     let point = PointStruct::new(
         deterministic_uuid.to_string(),
         vector,
         payload,
     );
 
-    client.upsert_points(
+    let result = client.upsert_points(
         UpsertPointsBuilder::new(COLLECTION_NAME, vec![point])
     )
-    .await
-    .map_err(|e| format!("Error en upsert: {}", e))?;
+        .await;
 
-    Ok(())
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => Err(format!("Upsert failed - kind: {:?}", e))
+    }
 }
 
 pub async fn search_context(
