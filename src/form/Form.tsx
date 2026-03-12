@@ -4,7 +4,7 @@ import { InputForAi, InputSelectModel } from "./Input";
 import { invoke } from "@tauri-apps/api/core";
 import { ChatMessage, DisplayResponses } from "../dashboard/Displayer";
 
-const Form = memo(() => {
+const Form = memo(({ disabled }: { disabled: boolean }) => {
   const [question, setQuestion] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -62,12 +62,8 @@ const Form = memo(() => {
               msg={question}
               changeEvent={(e) => setQuestion(e.target.value)}
             />
-            <button
-              type="submit"
-              className="question-button"
-              disabled={isLoading}
-            >
-              {isLoading ? "..." : "Ask"}
+            <button type="submit" disabled={isLoading || disabled}>
+              {disabled ? "Indexando..." : isLoading ? "Thinking..." : "Ask"}
             </button>
           </div>
         </form>

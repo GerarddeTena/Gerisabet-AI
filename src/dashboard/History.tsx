@@ -16,4 +16,5 @@ const ChatHistory = memo(({ chatHistory }: ChatHistoryProps) => {
   );
 });
 
+ChatHistory.displayName = "ChatHistory";
 export default ChatHistory;
