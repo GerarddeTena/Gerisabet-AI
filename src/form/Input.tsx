@@ -1,5 +1,4 @@
-import "@styles/styles.css";
-import { InputSelectModelProps } from "../interfaces";
+import { InputSelectModelProps } from "@types/interfaces.ts";
 
 export const InputForAi = ({
   msg,

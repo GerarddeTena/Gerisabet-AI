@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 pub const COLLECTION_NAME: &str = "gerisabet_library";
+pub const SKILLS_COLLECTION_NAME: &str = "gerisabet_skills";
 const VECTOR_SIZE: u64 = 768; // Dimensión para nomic-embed-text
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -16,8 +17,18 @@ pub struct QdrantSearchResult {
     pub score: f32,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SkillSearchResult {
+    pub content: String,
+    pub skill_name: String,
+    pub skill_type: String,
+    pub score: f32,
+}
+
 pub async fn get_client() -> Result<Qdrant, String> {
-    let client = Qdrant::from_url("http://localhost:6334")
+    std::env::set_var("QDRANT__CHECK_COMPATIBILITY", "false");
+
+    let client = Qdrant::from_url("http://127.0.0.1:6334")
         .build()
         .map_err(|e| format!("Error construyendo cliente: {}", e))?;
 
@@ -57,19 +68,25 @@ pub async fn upsert_chunk(
     let unique_str = format!("{}-{}", file_path, text);
     let deterministic_uuid = uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_OID, unique_str.as_bytes());
 
+    println!("UUID generado: {}", deterministic_uuid.to_string());
+    println!("Vector size: {}", vector.len());
+    println!("Payload keys: {:?}", payload.keys().collect::<Vec<_>>());
+
     let point = PointStruct::new(
         deterministic_uuid.to_string(),
         vector,
         payload,
     );
 
-    client.upsert_points(
+    let result = client.upsert_points(
         UpsertPointsBuilder::new(COLLECTION_NAME, vec![point])
     )
-    .await
-    .map_err(|e| format!("Error en upsert: {}", e))?;
+        .await;
 
-    Ok(())
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => Err(format!("Upsert failed - kind: {:?}", e))
+    }
 }
 
 pub async fn search_context(
@@ -108,3 +125,91 @@ let search_result = client.search_points(
     }
     Ok(contexts)
 }
+
+pub async fn init_skills_collection(client: &Qdrant) -> Result<(), String> {
+    let exists = client.collection_exists(SKILLS_COLLECTION_NAME)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !exists {
+        client.create_collection(
+            CreateCollectionBuilder::new(SKILLS_COLLECTION_NAME)
+                .vectors_config(VectorParamsBuilder::new(VECTOR_SIZE, Distance::Cosine))
+        )
+        .await
+        .map_err(|e| format!("Error creating skills collection: {}", e))?;
+    }
+    Ok(())
+}
+
+pub async fn upsert_skill(
+    client: &Qdrant,
+    content: &str,
+    skill_name: &str,
+    skill_type: &str,
+    vector: Vec<f32>,
+) -> Result<(), String> {
+    let mut payload: HashMap<String, Value> = HashMap::new();
+    payload.insert("content".to_string(), content.into());
+    payload.insert("skill_name".to_string(), skill_name.into());
+    payload.insert("skill_type".to_string(), skill_type.into());
+
+    let unique_str = format!("{}-{}-{}", skill_type, skill_name, content);
+    let deterministic_uuid = uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_OID, unique_str.as_bytes());
+
+    let point = PointStruct::new(
+        deterministic_uuid.to_string(),
+        vector,
+        payload,
+    );
+
+    let result = client.upsert_points(
+        UpsertPointsBuilder::new(SKILLS_COLLECTION_NAME, vec![point])
+    )
+    .await;
+
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => Err(format!("Skill upsert failed: {:?}", e)),
+    }
+}
+
+pub async fn search_skills(
+    client: &Qdrant,
+    query_vector: Vec<f32>,
+    limit: u64,
+    threshold: f32,
+) -> Result<Vec<SkillSearchResult>, String> {
+    let safe_limit = if limit == 0 { 3 } else if limit > 50 { 50 } else { limit };
+
+    let search_result = client.search_points(
+        SearchPointsBuilder::new(SKILLS_COLLECTION_NAME, query_vector, safe_limit)
+            .score_threshold(threshold)
+            .with_payload(true)
+    )
+    .await
+    .map_err(|e| format!("Error searching skills: {}", e))?;
+
+    let mut results = Vec::new();
+    for point in search_result.result {
+        let content = match point.payload.get("content").and_then(|v| v.as_str()) {
+            Some(c) => c.to_string(),
+            None => {
+                eprintln!("Warning: 'content' missing in skill point with score {}", point.score);
+                continue;
+            }
+        };
+        let skill_name = match point.payload.get("skill_name").and_then(|v| v.as_str()) {
+            Some(n) => n.to_string(),
+            None => "unknown".to_string(),
+        };
+        let skill_type = match point.payload.get("skill_type").and_then(|v| v.as_str()) {
+            Some(t) => t.to_string(),
+            None => "unknown".to_string(),
+        };
+
+        results.push(SkillSearchResult { content, skill_name, skill_type, score: point.score });
+    }
+    Ok(results)
+}
+

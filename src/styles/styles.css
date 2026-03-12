@@ -138,21 +138,46 @@ a:hover {
 }
 
 /* ===================================================
-   TITLE
+   TITLE — conic gradient that follows the mouse
    =================================================== */
+
+/* Register custom properties to enable CSS transitions on them */
+@property --mx {
+  syntax: "<percentage>";
+  initial-value: 50%;
+  inherits: false;
+}
+
+@property --my {
+  syntax: "<percentage>";
+  initial-value: 50%;
+  inherits: false;
+}
+
 .app-title {
   font-size: 3.25rem;
   font-weight: 800;
   letter-spacing: -0.5px;
-  background: linear-gradient(
-    130deg,
-    var(--accent-light) 0%,
-    var(--teal) 60%,
-    var(--accent) 100%
+  --mx: 50%;
+  --my: 50%;
+  background: radial-gradient(
+    ellipse at var(--mx) var(--my),
+    #24c8db  0%,
+    #2fc0d8 12%,
+    #5591e4 28%,
+    #7b6ef5 44%,
+    #8b5cf6 58%,
+    #9e72f9 72%,
+    #b48dfb 86%,
+    #a78bfa 100%
   );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  cursor: default;
+  transition:
+    --mx 0.22s ease-out,
+    --my 0.22s ease-out;
   animation: titleFadeIn 0.7s ease-out both;
 }
 
