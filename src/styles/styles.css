@@ -134,6 +134,7 @@ a:hover {
     padding: 2rem 1.5rem 1rem;
     gap: 1.25rem;
     min-height: 100vh;
+    position: relative;
 }
 
 /* ===================================================

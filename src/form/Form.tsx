@@ -5,10 +5,9 @@ import {DisplayResponses} from "@/dashboard";
 import {ChatMessage, FormProps} from "@/types/interfaces.ts";
 import {listen} from "@tauri-apps/api/event";
 
-const Form = memo(({disabled = false}: FormProps) => {
+const Form = memo(({disabled = false, chatHistory = [], onChatHistoryChange}: FormProps) => {
     const [question, setQuestion] = useState<string>("");
     const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [selectModel, setSelectModel] = useState<string>("qwen2.5-coder:3b");
 
     const responsesRef = useRef<HTMLElement | null>(null);
@@ -50,10 +49,11 @@ const Form = memo(({disabled = false}: FormProps) => {
         setIsLoading(true);
 
         const userMsg: ChatMessage = {id: Date.now(), role: "user", text: trimmed};
-        setChatHistory(prev => [...prev, userMsg]);
+        const newHistory = [...chatHistory, userMsg];
+        onChatHistoryChange?.(newHistory);
 
         const aiId = Date.now() + 1;
-        setChatHistory(prev => [...prev, {id: aiId, role: "ai", text: ""}]);
+        onChatHistoryChange?.([...newHistory, {id: aiId, role: "ai", text: ""}]);
 
         const cleanup = () => {
             unlistenTokenRef.current?.();
@@ -63,22 +63,31 @@ const Form = memo(({disabled = false}: FormProps) => {
         };
 
         unlistenTokenRef.current = await listen<string>("ai_token", (event) => {
-            setChatHistory(prev => prev.map(msg =>
+            onChatHistoryChange?.(prev => prev.map(msg =>
                 msg.id === aiId
                     ? {...msg, text: msg.text + event.payload}
                     : msg
             ));
         });
 
-        unlistenDoneRef.current = await listen<string>("ai_done", () => {
+        unlistenDoneRef.current = await listen<string>("ai_done", async (event) => {
             setIsLoading(false);
+
+            const fullResponse = event.payload;
+            if (fullResponse) {
+                await invoke("save_exchange", {
+                    question: trimmed,
+                    answer: fullResponse
+                });
+            }
+
             cleanup();
         });
 
         try {
             await invoke("ask_gerisabet", {question: trimmed, model: selectModel});
         } catch (error) {
-            setChatHistory(prev => prev.map(msg =>
+            onChatHistoryChange?.(prev => prev.map(msg =>
                 msg.id === aiId
                     ? {...msg, text: "(Error) Failed to get response"}
                     : msg
@@ -86,7 +95,7 @@ const Form = memo(({disabled = false}: FormProps) => {
             setIsLoading(false);
             cleanup();
         }
-    }, [question, selectModel]);
+    }, [question, selectModel, chatHistory, onChatHistoryChange]);
 
     return (
         <>

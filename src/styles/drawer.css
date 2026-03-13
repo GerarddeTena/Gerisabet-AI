@@ -1,0 +1,366 @@
+/* ===================================================
+   DRAWER CONTAINER & LAYOUT
+   =================================================== */
+
+.drawer-toggle {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  cursor: pointer;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  animation: fadeIn 0.3s ease-out both;
+}
+
+.drawer-toggle:hover {
+  border-color: var(--accent);
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--accent-light);
+  box-shadow: 0 0 14px rgba(139, 92, 246, 0.22);
+  transform: scale(1.05);
+}
+
+.drawer-toggle:active {
+  transform: scale(0.97);
+}
+
+.drawer-icon {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===================================================
+   DRAWER OVERLAY
+   =================================================== */
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 99;
+  animation: fadeIn 0.2s ease-out both;
+}
+
+/* ===================================================
+   DRAWER SIDEBAR
+   =================================================== */
+
+.drawer {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: 340px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  z-index: 101;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.3);
+}
+
+.drawer.open {
+  transform: translateX(0);
+}
+
+/* ===================================================
+   DRAWER HEADER
+   =================================================== */
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 0.75rem;
+}
+
+.drawer-header h2 {
+  font-size: 1.125rem;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.drawer-close {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 1.125rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.drawer-close:hover {
+  border-color: var(--error);
+  background: rgba(248, 81, 73, 0.1);
+  color: var(--error);
+}
+
+/* ===================================================
+   DRAWER TABS
+   =================================================== */
+
+.drawer-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  gap: 0;
+  flex-shrink: 0;
+  padding: 0 0.5rem;
+}
+
+.drawer-tab {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.drawer-tab:hover {
+  color: var(--text-primary);
+  background: rgba(139, 92, 246, 0.05);
+}
+
+.drawer-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* ===================================================
+   DRAWER CONTENT
+   =================================================== */
+
+.drawer-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1rem 1.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.drawer-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.drawer-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.drawer-content::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.drawer-content::-webkit-scrollbar-thumb:hover {
+  background: var(--border-muted);
+}
+
+/* ===================================================
+   DRAWER SECTION
+   =================================================== */
+
+.drawer-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.drawer-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.drawer-section h3 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+  margin-top: 0;
+}
+
+.drawer-section p {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.875rem 0;
+  line-height: 1.5;
+}
+
+/* ===================================================
+   DRAWER BUTTONS & ACTIONS
+   =================================================== */
+
+.drawer-button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.drawer-action-button {
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.drawer-action-button:hover {
+  border-color: var(--accent);
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--accent-light);
+  box-shadow: 0 0 14px rgba(139, 92, 246, 0.22);
+}
+
+.drawer-action-button:active {
+  transform: scale(0.97);
+}
+
+.drawer-action-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.drawer-action-button.danger {
+  border-color: rgba(248, 81, 73, 0.4);
+  color: var(--error);
+}
+
+.drawer-action-button.danger:hover {
+  background: rgba(248, 81, 73, 0.1);
+  border-color: var(--error);
+  box-shadow: 0 0 14px rgba(248, 81, 73, 0.22);
+}
+
+.drawer-action-button.success {
+  background: linear-gradient(135deg, rgba(63, 185, 80, 0.12), rgba(63, 185, 80, 0.06));
+  border-color: rgba(63, 185, 80, 0.4);
+  color: var(--success);
+}
+
+.drawer-action-button.success:hover {
+  background: linear-gradient(135deg, rgba(63, 185, 80, 0.18), rgba(63, 185, 80, 0.08));
+  border-color: var(--success);
+  box-shadow: 0 0 14px rgba(63, 185, 80, 0.22);
+}
+
+/* ===================================================
+   CHAT HISTORY LIST
+   =================================================== */
+
+.chat-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.chat-history-item {
+  padding: 0.75rem;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.chat-history-item strong {
+  color: var(--accent-light);
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+/* ===================================================
+   EMPTY STATE
+   =================================================== */
+
+.drawer-empty {
+  padding: 2rem 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.drawer-empty svg {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 1rem;
+  opacity: 0.5;
+}
+
+/* ===================================================
+   RESPONSIVE
+   =================================================== */
+
+@media (max-width: 768px) {
+  .drawer {
+    width: 280px;
+  }
+
+  .drawer-content {
+    padding: 0.875rem 1rem;
+  }
+
+  .drawer-header {
+    padding: 0.875rem 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .drawer {
+    width: 100%;
+  }
+
+  .drawer-toggle {
+    top: 0.75rem;
+    left: 0.75rem;
+  }
+}

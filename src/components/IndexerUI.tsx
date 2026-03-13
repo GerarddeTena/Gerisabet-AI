@@ -3,7 +3,6 @@ import {IndexerUIProps} from "@/types/interfaces.ts";
 export default function IndexerUI({ isIndexing, chunkProgress, logs, logEndRef, statusMessage, statusClass }: IndexerUIProps) {
   return (
     <>
-      {/* Chunk progress bar */}
       {isIndexing && chunkProgress.file && (
         <div className="indexing-progress">
           <span className="indexing-progress-label">

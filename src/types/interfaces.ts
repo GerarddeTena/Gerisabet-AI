@@ -6,6 +6,8 @@ import React from "react";
 
 export interface FormProps {
   disabled?: boolean;
+  chatHistory?: ChatMessage[];
+  onChatHistoryChange?: (history: ChatMessage[]) => void;
 }
 
 export type InputSelectModelProps = {
