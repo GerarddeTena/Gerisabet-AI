@@ -7,7 +7,7 @@ import React from "react";
 export interface FormProps {
   disabled?: boolean;
   chatHistory?: ChatMessage[];
-  onChatHistoryChange?: (history: ChatMessage[]) => void;
+  onChatHistoryChange?: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }
 
 export type InputSelectModelProps = {
