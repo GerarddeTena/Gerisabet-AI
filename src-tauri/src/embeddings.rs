@@ -7,6 +7,23 @@ use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio_util::io::StreamReader;
 
+#[derive(Serialize)]
+struct EmbeddingRequest {
+    model: String,
+    prompt: String,
+}
+
+#[derive(Deserialize)]
+struct EmbeddingResponse {
+    embedding: Vec<f32>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ChatHistoryMessage {
+    pub role: String,
+    pub content: String,
+}
+
 const EMBEDDING_MODEL: &str = "nomic-embed-text";
 static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
 static STREAM_CLIENT: OnceLock<Client> = OnceLock::new();
@@ -27,17 +44,6 @@ fn get_stream_client() -> &'static Client {
             .build()
             .expect("Failed to init stream client")
     })
-}
-
-#[derive(Serialize)]
-struct EmbeddingRequest {
-    model: String,
-    prompt: String,
-}
-
-#[derive(Deserialize)]
-struct EmbeddingResponse {
-    embedding: Vec<f32>,
 }
 
 pub async fn get_embedding(text: &str) -> Result<Vec<f32>, String> {
@@ -61,23 +67,41 @@ pub async fn stream_ollama_response(
     question: &str,
     context: String,
     model: &str,
+    history: Vec<ChatHistoryMessage>, // 👈 add this
     app: AppHandle,
 ) -> Result<(), String> {
-    let system_prompt = "You are GerisabetAI, a coding assistant. \
+    let system_prompt = format!(
+        "You are GerisabetAI, a coding assistant. \
         Answer concisely using ONLY the provided context. \
         Use Markdown. Code blocks must specify language. \
-        If the answer is not in the context, say so clearly.";
+        If the answer is not in the context, say so clearly.\n\n\
+        Context:\n{}",
+        context
+    );
 
-    let full_prompt = format!("Context:\n{}\n\nQuestion: {}", context, question);
+    let mut messages: Vec<serde_json::Value> = vec![
+        serde_json::json!({ "role": "system", "content": system_prompt })
+    ];
+
+    for msg in &history {
+        messages.push(serde_json::json!({
+            "role": msg.role,
+            "content": msg.content
+        }));
+    }
+
+    messages.push(serde_json::json!({
+        "role": "user",
+        "content": question
+    }));
 
     let client = get_stream_client();
 
-    let res= client
-        .post("http://localhost:11434/api/generate")
+    let res = client
+        .post("http://localhost:11434/api/chat") // 👈 /api/chat not /api/generate
         .json(&serde_json::json!({
             "model": model,
-            "prompt": full_prompt,
-            "system": system_prompt,
+            "messages": messages,
             "stream": true
         }))
         .send()
@@ -89,23 +113,23 @@ pub async fn stream_ollama_response(
         .map(|r| r.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)));
 
     let mut lines = BufReader::new(StreamReader::new(byte_stream)).lines();
+    let mut full_response = String::new();
 
-    while let Some(line) = lines
-        .next_line()
-        .await
+    while let Some(line) = lines.next_line().await
         .map_err(|e| format!("Stream read error: {}", e))?
     {
         if line.is_empty() { continue; }
 
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
-            let token = json["response"].as_str().unwrap_or("");
+            let token = json["message"]["content"].as_str().unwrap_or("");
             let done = json["done"].as_bool().unwrap_or(false);
 
             if !token.is_empty() {
+                full_response.push_str(token);
                 app.emit("ai_token", token).ok();
             }
             if done {
-                app.emit("ai_done", "").ok();
+                app.emit("ai_done", &full_response).ok();
                 break;
             }
         }
