@@ -1,5 +1,13 @@
 import React from "react";
 
+// ================================================================
+//                FORM INTERFACES AND TYPES
+// ================================================================
+
+export interface FormProps {
+  disabled?: boolean;
+}
+
 export type InputSelectModelProps = {
   model: string;
   changeEvent: React.ChangeEventHandler<HTMLSelectElement>;
@@ -35,12 +43,18 @@ export interface DatabaseManagerProps {
   onIndexingChange: (state: boolean) => void;
 }
 
-
+export interface DisplayResponsesProps {
+  history: ChatMessage[];
+  isLoading?: boolean;
+  className?: string;
+}
 // ==================================================================
 //                           HOOKS INTERFACES AND TYPES
 // ==================================================================
 export type ProgressEvent = {
-  type: "file_start" | "file_done" | "file_skipped" | "chunk" | "cancelled";
+  skipped_count: number;
+  new_count: number;
+  type: "file_start" | "file_done" | "file_skipped" | "chunk" | "cancelled" | "file_error" | "completed";
   file: string;
   current?: number;
   total?: number;

@@ -1,12 +1,9 @@
-import React, { memo, useState, useCallback, useRef, useEffect } from "react";
-import { InputForAi, InputSelectModel } from "./Input";
-import { invoke } from "@tauri-apps/api/core";
-import { DisplayResponses } from "@/dashboard";
-import { ChatMessage } from "@types/interfaces.ts";
-
-export interface FormProps {
-    disabled?: boolean;
-}
+import React, {memo, useState, useCallback, useRef, useEffect} from "react";
+import {InputForAi, InputSelectModel} from "./Input";
+import {invoke} from "@tauri-apps/api/core";
+import {DisplayResponses} from "@/dashboard";
+import {ChatMessage, FormProps} from "@/types/interfaces.ts";
+import {listen} from "@tauri-apps/api/event";
 
 const Form = memo(({disabled = false}: FormProps) => {
     const [question, setQuestion] = useState<string>("");
@@ -14,14 +11,9 @@ const Form = memo(({disabled = false}: FormProps) => {
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [selectModel, setSelectModel] = useState<string>("qwen2.5-coder:3b");
 
-    const isMountedRef = useRef(true);
-    useEffect(() => {
-        return () => {
-            isMountedRef.current = false;
-        };
-    }, []);
-
     const responsesRef = useRef<HTMLElement | null>(null);
+    const unlistenTokenRef = useRef<(() => void) | null>(null);
+    const unlistenDoneRef = useRef<(() => void) | null>(null);
 
     useEffect(() => {
         const el = responsesRef.current;
@@ -46,54 +38,55 @@ const Form = memo(({disabled = false}: FormProps) => {
         setSelectModel(e.target.value);
     }, []);
 
-    const handleSubmit = useCallback(
-        async (e: React.FormEvent) => {
-            e.preventDefault();
-            const trimmed = question.trim();
-            if (!trimmed) return;
+    const handleSubmit = useCallback(async (e: React.FormEvent) => {
+        e.preventDefault();
+        const trimmed = question.trim();
+        if (!trimmed) return;
 
-            const currentQuestion = trimmed;
-            setQuestion("");
-            setIsLoading(true);
+        unlistenTokenRef.current?.();
+        unlistenDoneRef.current?.();
 
-            const userMsg: ChatMessage = {
-                id: Date.now(),
-                role: "user",
-                text: currentQuestion,
-            };
+        setQuestion("");
+        setIsLoading(true);
 
-            setChatHistory((prev) => [...prev, userMsg]);
+        const userMsg: ChatMessage = {id: Date.now(), role: "user", text: trimmed};
+        setChatHistory(prev => [...prev, userMsg]);
 
-            try {
-                const response = await invoke<string>("ask_gerisabet", {
-                    question: currentQuestion,
-                    model: selectModel,
-                });
+        const aiId = Date.now() + 1;
+        setChatHistory(prev => [...prev, {id: aiId, role: "ai", text: ""}]);
 
-                if (!isMountedRef.current) return;
+        const cleanup = () => {
+            unlistenTokenRef.current?.();
+            unlistenDoneRef.current?.();
+            unlistenTokenRef.current = null;
+            unlistenDoneRef.current = null;
+        };
 
-                const aiMsg: ChatMessage = {
-                    id: Date.now() + 1,
-                    role: "ai",
-                    text: response ?? "",
-                };
-                setChatHistory((prev) => [...prev, aiMsg]);
-            } catch (error) {
-                console.error("ask_gerisabet failed", error);
-                if (isMountedRef.current) {
-                    const errMsg: ChatMessage = {
-                        id: Date.now() + 2,
-                        role: "ai",
-                        text: "(Error) Failed to get response",
-                    };
-                    setChatHistory((prev) => [...prev, errMsg]);
-                }
-            } finally {
-                if (isMountedRef.current) setIsLoading(false);
-            }
-        },
-        [question, selectModel]
-    );
+        unlistenTokenRef.current = await listen<string>("ai_token", (event) => {
+            setChatHistory(prev => prev.map(msg =>
+                msg.id === aiId
+                    ? {...msg, text: msg.text + event.payload}
+                    : msg
+            ));
+        });
+
+        unlistenDoneRef.current = await listen<string>("ai_done", () => {
+            setIsLoading(false);
+            cleanup();
+        });
+
+        try {
+            await invoke("ask_gerisabet", {question: trimmed, model: selectModel});
+        } catch (error) {
+            setChatHistory(prev => prev.map(msg =>
+                msg.id === aiId
+                    ? {...msg, text: "(Error) Failed to get response"}
+                    : msg
+            ));
+            setIsLoading(false);
+            cleanup();
+        }
+    }, [question, selectModel]);
 
     return (
         <>
@@ -109,7 +102,7 @@ const Form = memo(({disabled = false}: FormProps) => {
                     <div className="chat-input-row">
                         <InputForAi msg={question} changeEvent={handleQuestionChange}/>
                         <button type="submit" disabled={isLoading || disabled} aria-label="Ask question">
-                            {disabled ? "Indexing..." : isLoading ? "Thinking..." : "Ask"}
+                            {disabled ? "⏳ Indexing..." : isLoading ? "⚡ Generating..." : "Ask"}
                         </button>
                     </div>
                 </form>

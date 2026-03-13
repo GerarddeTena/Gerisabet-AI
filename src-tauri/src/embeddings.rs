@@ -1,20 +1,31 @@
+use futures_util::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 use std::time::Duration;
+use tauri::{AppHandle, Emitter};
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio_util::io::StreamReader;
 
-// [🟢 Minor] Nombres de modelos como constantes
 const EMBEDDING_MODEL: &str = "nomic-embed-text";
-
-// [🔴 Critical] Cliente HTTP global y reutilizable con [🟡 Logic] Timeout
 static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
+static STREAM_CLIENT: OnceLock<Client> = OnceLock::new();
 
 fn get_http_client() -> &'static Client {
     HTTP_CLIENT.get_or_init(|| {
         Client::builder()
-            .timeout(Duration::from_secs(120)) // Timeout de 2 min para dar tiempo al LLM
+            .timeout(Duration::from_secs(120))
             .build()
-            .expect("Fallo al inicializar el cliente HTTP")
+            .expect("Failed to init HTTP client")
+    })
+}
+
+fn get_stream_client() -> &'static Client {
+    STREAM_CLIENT.get_or_init(|| {
+        Client::builder()
+            .timeout(Duration::from_secs(600)) // 10min for long generations
+            .build()
+            .expect("Failed to init stream client")
     })
 }
 
@@ -27,19 +38,6 @@ struct EmbeddingRequest {
 #[derive(Deserialize)]
 struct EmbeddingResponse {
     embedding: Vec<f32>,
-}
-
-#[derive(Serialize)]
-struct GenerateRequest {
-    model: String,
-    prompt: String,
-    system: String, // Añadimos el campo system
-    stream: bool,
-}
-
-#[derive(Deserialize)]
-struct GenerateResponse {
-    response: String,
 }
 
 pub async fn get_embedding(text: &str) -> Result<Vec<f32>, String> {
@@ -59,33 +57,59 @@ pub async fn get_embedding(text: &str) -> Result<Vec<f32>, String> {
     Ok(data.embedding)
 }
 
-pub async fn generate_ollama_response(
-    question: String,
+pub async fn stream_ollama_response(
+    question: &str,
     context: String,
-    model: String,
-) -> Result<String, String> {
-    let client = get_http_client();
+    model: &str,
+    app: AppHandle,
+) -> Result<(), String> {
+    let system_prompt = "You are GerisabetAI, a coding assistant. \
+        Answer concisely using ONLY the provided context. \
+        Use Markdown. Code blocks must specify language. \
+        If the answer is not in the context, say so clearly.";
 
-    // [🟡 Logic] System prompt para asentar ("grounding") al LLM
-    let system_prompt = "Eres Gerisabet AI, un asistente experto. Utiliza ÚNICAMENTE la información proporcionada en el contexto para responder a la pregunta del usuario. Si la respuesta no está en el contexto, di claramente que no tienes esa información. No inventes datos ni utilices conocimiento externo.".to_string();
+    let full_prompt = format!("Context:\n{}\n\nQuestion: {}", context, question);
 
-    let final_prompt = format!(
-        "Contexto de los documentos:\n{}\n\nPregunta del usuario: {}",
-        context, question
-    );
+    let client = get_stream_client();
 
-    let res = client
+    let res= client
         .post("http://localhost:11434/api/generate")
-        .json(&GenerateRequest {
-            model,
-            prompt: final_prompt,
-            system: system_prompt,
-            stream: false,
-        })
+        .json(&serde_json::json!({
+            "model": model,
+            "prompt": full_prompt,
+            "system": system_prompt,
+            "stream": true
+        }))
         .send()
         .await
-        .map_err(|e| format!("Error HTTP Generación: {}", e))?;
+        .map_err(|e| format!("Ollama request failed: {}", e))?;
 
-    let data: GenerateResponse = res.json().await.map_err(|e| e.to_string())?;
-    Ok(data.response)
+    let byte_stream = res
+        .bytes_stream()
+        .map(|r| r.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)));
+
+    let mut lines = BufReader::new(StreamReader::new(byte_stream)).lines();
+
+    while let Some(line) = lines
+        .next_line()
+        .await
+        .map_err(|e| format!("Stream read error: {}", e))?
+    {
+        if line.is_empty() { continue; }
+
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
+            let token = json["response"].as_str().unwrap_or("");
+            let done = json["done"].as_bool().unwrap_or(false);
+
+            if !token.is_empty() {
+                app.emit("ai_token", token).ok();
+            }
+            if done {
+                app.emit("ai_done", "").ok();
+                break;
+            }
+        }
+    }
+
+    Ok(())
 }

@@ -1,179 +1,95 @@
-import React, { memo, forwardRef, useMemo, useState, useRef, useEffect } from "react";
-import { ChatMessage } from "@types/interfaces.ts";
+import React, {memo, forwardRef, useMemo} from "react";
+import ReactMarkdown from "react-markdown";
+import {Prism as SyntaxHighlighter} from "react-syntax-highlighter";
+import {vscDarkPlus} from "react-syntax-highlighter/dist/esm/styles/prism";
 
-export interface DisplayResponsesProps {
-  history: ChatMessage[];
-  isLoading?: boolean;
-  className?: string;
-}
+import {ChatMessage, DisplayResponsesProps} from "@/types/interfaces.ts";
+import {GerisabetLoader} from "@components/GerisabetLoader.tsx";
 
-const LoadingDots = memo(() => (
-  <li className="message ai-msg loading-indicator">
-    <strong>GerisabetAI:</strong>
-    <div className="loading-dots">
-      <span />
-      <span />
-      <span />
-    </div>
-  </li>
+const Message = memo(({msg}: { msg: ChatMessage }) => (
+    <li className={`message ${msg.role === "user" ? "user-msg" : "ai-msg"}`}>
+        <strong>{msg.role === "user" ? "You" : "GerisabetAI"}:</strong>
+        {msg.role === "user" ? (
+            <p style={{whiteSpace: "pre-wrap"}}>{msg.text}</p>
+        ) : (
+            <div className="md-response">
+
+                <ReactMarkdown
+                    components={{
+                        code({node, inline, className, children, ...props}: any) {
+                            const match = /language-(\w+)/.exec(className || "");
+                            return !inline && match ? (
+                                <SyntaxHighlighter
+                                    style={vscDarkPlus}
+                                    language={match[1]}
+                                    PreTag="div"
+                                    {...props}
+                                >
+                                    {String(children).replace(/\n$/, "")}
+                                </SyntaxHighlighter>
+                            ) : (
+                                <code className={className} {...props}>{children}</code>
+                            );
+                        },
+                    }}
+                >
+                    {msg.text}
+                </ReactMarkdown>
+            </div>
+        )}
+    </li>
 ));
-LoadingDots.displayName = "LoadingDots";
 
-const Message = memo(({ msg }: { msg: ChatMessage }) => (
-  <li className={`message ${msg.role === "user" ? "user-msg" : "ai-msg"}`}>
-    <strong>{msg.role === "user" ? "You" : "GerisabetAI"}:</strong>
-    <p>{msg.text}</p>
-  </li>
-));
 Message.displayName = "Message";
 
-// Thresholds
-const VIRTUALIZE_THRESHOLD = 40; // start virtualizing when history is large
-const VIRTUALIZED_COUNT = 300;
+const VIRTUALIZE_THRESHOLD = 100;
 
 function areEqual(prev: DisplayResponsesProps, next: DisplayResponsesProps) {
-  if (prev.isLoading !== next.isLoading) return false;
-  const prevLen = prev.history.length;
-  const nextLen = next.history.length;
-  if (prevLen !== nextLen) return false;
-  const prevLastId = prev.history[prevLen - 1]?.id ?? null;
-  const nextLastId = next.history[nextLen - 1]?.id ?? null;
-  return prevLastId === nextLastId;
+    if (prev.isLoading !== next.isLoading) return false;
+    if (prev.history.length !== next.history.length) return false;
+    const lastPrev = prev.history[prev.history.length - 1]?.id ?? null;
+    const lastNext = next.history[next.history.length - 1]?.id ?? null;
+    return lastPrev === lastNext;
 }
 
 const DisplayResponses = memo(
-  forwardRef<HTMLElement, DisplayResponsesProps>(({ history, isLoading = false, className }, forwardedRef) => {
-    const { visibleHistory, hiddenCount } = useMemo(() => {
-      const total = history.length;
-      if (total > VIRTUALIZE_THRESHOLD) {
-        const start = Math.max(0, total - VIRTUALIZED_COUNT);
-        return { visibleHistory: history.slice(start), hiddenCount: start };
-      }
-      return { visibleHistory: history, hiddenCount: 0 };
-    }, [history]);
+    forwardRef<HTMLElement, DisplayResponsesProps>((
+        {history, isLoading = false, className},
+        ref
+    ) => {
+        const visibleHistory = useMemo(() => {
+            if (history.length > VIRTUALIZE_THRESHOLD) {
+                return history.slice(-VIRTUALIZE_THRESHOLD);
+            }
+            return history;
+        }, [history]);
 
-    // try to dynamically import react-window; fall back to plain rendering if not available
-    const [rw, setRw] = useState<any>(null);
-    useEffect(() => {
-      let mounted = true;
-      import("react-window")
-        .then((mod) => {
-          if (mounted) setRw(mod);
-        })
-        .catch(() => {
-          // react-window not installed — we'll fallback to list rendering
-        });
-      return () => {
-        mounted = false;
-      };
-    }, []);
+        const hiddenCount = history.length - visibleHistory.length;
 
-    // refs and measurements
-    const innerRef = useRef<HTMLElement | null>(null);
-    const setRefs = (el: HTMLElement | null) => {
-      innerRef.current = el;
-      if (!forwardedRef) return;
-      if (typeof forwardedRef === "function") forwardedRef(el);
-      else (forwardedRef as React.MutableRefObject<HTMLElement | null>).current = el;
-    };
-
-    const [containerHeight, setContainerHeight] = useState<number>(300);
-    const [containerWidth, setContainerWidth] = useState<number>(600);
-
-    useEffect(() => {
-      const el = innerRef.current;
-      if (!el) return;
-      const RO = (window as any).ResizeObserver;
-      let ro: any;
-      if (RO) {
-        ro = new RO((entries: any[]) => {
-          const rect = entries[0]?.contentRect;
-          if (rect) {
-            setContainerHeight(Math.max(80, Math.floor(rect.height)));
-            setContainerWidth(Math.floor(rect.width));
-          }
-        });
-        ro.observe(el);
-      }
-      // initial
-      const rect = el.getBoundingClientRect();
-      setContainerHeight(Math.max(80, Math.floor(rect.height)));
-      setContainerWidth(Math.floor(rect.width));
-
-      return () => ro && ro.disconnect();
-    }, []);
-
-    // size cache for variable heights
-    const sizeCacheRef = useRef<Record<number, number>>({});
-    const getItemSize = (index: number) => {
-      if (sizeCacheRef.current[index]) return sizeCacheRef.current[index];
-      const msg = visibleHistory[index];
-      const approxLines = Math.ceil(((msg?.text ?? "").length || 0) / 60);
-      const size = Math.min(240, 56 + approxLines * 18);
-      sizeCacheRef.current[index] = size;
-      return size;
-    };
-
-    const listRef = useRef<any>(null);
-    useEffect(() => {
-      // reset cached sizes when visibleHistory changes
-      sizeCacheRef.current = {};
-      if (listRef.current?.resetAfterIndex) {
-        try {
-          listRef.current.resetAfterIndex(0, true);
-        } catch {
-          /* ignore */
-        }
-      }
-    }, [visibleHistory, rw]);
-
-    const VariableSizeList = rw?.VariableSizeList;
-
-    return (
-      <section
-        ref={setRefs}
-        className={className ?? "container-responses"}
-        role="log"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        {hiddenCount > 0 && (
-          <div className="indexing-log-entry" aria-hidden="true">
-            Showing last {visibleHistory.length} of {history.length} messages
-          </div>
-        )}
-
-        {VariableSizeList && containerHeight > 0 ? (
-          <VariableSizeList
-            ref={listRef}
-            height={containerHeight}
-            width={containerWidth}
-            itemCount={visibleHistory.length}
-            itemSize={(index: number) => getItemSize(index)}
-            overscanCount={6}
-            itemKey={(index: number) => visibleHistory[index].id}
-          >
-            {({ index, style }: { index: number; style: React.CSSProperties }) => (
-              <div style={style}>
-                <Message msg={visibleHistory[index]} />
-              </div>
-            )}
-          </VariableSizeList>
-        ) : (
-          <ul className="chat-list">
-            {visibleHistory.map((msg) => (
-              <Message key={msg.id} msg={msg} />
-            ))}
-
-            {isLoading && <LoadingDots />}
-          </ul>
-        )}
-      </section>
-    );
-  }),
-  areEqual
+        return (
+            <section
+                ref={ref as React.Ref<HTMLElement>}
+                className={className ?? "container-responses"}
+                role="log"
+                aria-live="polite"
+            >
+                {hiddenCount > 0 && (
+                    <p className="hidden-messages-notice">
+                        Showing last {visibleHistory.length} of {history.length} messages
+                    </p>
+                )}
+                <ul className="chat-list">
+                    {visibleHistory.map((msg) => (
+                        <Message key={msg.id} msg={msg}/>
+                    ))}
+                    {isLoading && <GerisabetLoader/>}
+                </ul>
+            </section>
+        );
+    }),
+    areEqual
 );
 
 DisplayResponses.displayName = "DisplayResponses";
 
-export { DisplayResponses };
+export {DisplayResponses};

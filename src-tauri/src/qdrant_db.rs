@@ -26,18 +26,25 @@ pub struct SkillSearchResult {
 }
 
 pub async fn get_client() -> Result<Qdrant, String> {
-    std::env::set_var("QDRANT__CHECK_COMPATIBILITY", "false");
-
     let client = Qdrant::from_url("http://127.0.0.1:6334")
         .build()
         .map_err(|e| format!("Error construyendo cliente: {}", e))?;
 
-    client.health_check()
-        .await
-        .map_err(|e| format!("Qdrant no responde: {}", e))?;
+    match client.health_check().await {
+        Ok(_) => {},
+        Err(e) => {
+            let err_str = e.to_string();
+            // Ignore version mismatch warnings, only fail on real connection errors
+            if !err_str.contains("compatibility") && !err_str.contains("version") {
+                return Err(format!("Qdrant no responde: {}", err_str));
+            }
+            println!("Qdrant version warning (ignorado): {}", err_str);
+        }
+    }
 
     Ok(client)
 }
+
 
 pub async fn init_collection(client: &Qdrant) -> Result<(), String> {
     let exists = client.collection_exists(COLLECTION_NAME)
