@@ -101,6 +101,57 @@ fn parse_stream_token(json_str: &str) -> Option<String> {
     }
 }
 
+// ── System prompt builder ─────────────────────────────────────────────────────
+
+/// Construct the system prompt injected before the conversation messages.
+///
+/// The prompt is intentionally kept concise (<180 words) so it consumes minimal
+/// tokens on small models (3B / 7B) while still being explicit enough that even
+/// instruction-light models follow the priority chain.
+///
+/// When context is present it uses XML `<context>` delimiters — a convention
+/// understood by Llama, Qwen, Mistral, Gemma, and most Ollama-distributed models.
+fn build_system_prompt(context: &str) -> String {
+    const BASE: &str = "\
+You are Gerisabet, a precise and knowledgeable AI assistant.\n\
+Answer clearly and concisely.\n\
+Format all responses in Markdown. Always specify the programming language in fenced code blocks.\n\
+Avoid filler phrases and unnecessary repetition.";
+
+    if context.is_empty() {
+        return BASE.to_string();
+    }
+
+    // Build a context-section-aware instruction block so the model knows exactly
+    // how to treat each section without having to infer it.
+    let has_rules = context.contains("=== RULES");
+    let has_skills = context.contains("=== SKILLS");
+    let has_docs = context.contains("=== DOCUMENTATION");
+
+    let mut priority_lines: Vec<&str> = Vec::new();
+    if has_rules {
+        priority_lines.push("- **RULES** — mandatory, always follow without exception");
+    }
+    if has_skills {
+        priority_lines.push("- **SKILLS** — define your tone, style, and approach; apply them");
+    }
+    if has_docs {
+        priority_lines
+            .push("- **DOCUMENTATION** — factual reference from indexed files; cite the filename when using specific information");
+    }
+
+    let priority_block = if priority_lines.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "\n\nUse the context below. Priority order:\n{}\n\nIf the context does not fully answer the question, supplement with your general knowledge — but keep context-grounded facts separate from your own knowledge.",
+            priority_lines.join("\n")
+        )
+    };
+
+    format!("{BASE}{priority_block}\n\n<context>\n{context}\n</context>")
+}
+
 impl LlmStreamer for OllamaClient {
     async fn stream(
         &self,
@@ -110,20 +161,7 @@ impl LlmStreamer for OllamaClient {
         history: Vec<HistoryEntry>,
         app: AppHandle,
     ) -> Result<(), AppError> {
-        let system_prompt = if context.is_empty() {
-            "You are GerisabetAI, a coding assistant. \
-            Answer concisely and helpfully. \
-            Use Markdown. Code blocks must specify language.".to_string()
-        } else {
-            format!(
-                "You are GerisabetAI, a coding assistant. \
-                Answer concisely using the provided context when relevant. \
-                Use Markdown. Code blocks must specify language. \
-                If the answer is not in the context, answer from your own knowledge.\n\n\
-                Context:\n{}",
-                context
-            )
-        };
+        let system_prompt = build_system_prompt(&context);
 
         let mut messages: Vec<serde_json::Value> =
             vec![serde_json::json!({ "role": "system", "content": system_prompt })];
@@ -188,6 +226,38 @@ impl LlmStreamer for OllamaClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn build_system_prompt_no_context_omits_context_block() {
+        let prompt = build_system_prompt("");
+        assert!(prompt.contains("Gerisabet"));
+        assert!(!prompt.contains("<context>"));
+        assert!(!prompt.contains("RULES"));
+    }
+
+    #[test]
+    fn build_system_prompt_with_rules_includes_mandatory_note() {
+        let ctx = "=== RULES (always follow) ===\n[grounding]\nBe honest.";
+        let prompt = build_system_prompt(ctx);
+        assert!(prompt.contains("<context>"));
+        assert!(prompt.contains("mandatory"));
+        assert!(prompt.contains("Be honest."));
+    }
+
+    #[test]
+    fn build_system_prompt_with_docs_includes_citation_note() {
+        let ctx = "=== DOCUMENTATION ===\n[file.pdf]\nsome facts";
+        let prompt = build_system_prompt(ctx);
+        assert!(prompt.contains("cite the filename"));
+        assert!(prompt.contains("some facts"));
+    }
+
+    #[test]
+    fn build_system_prompt_empty_context_stays_short() {
+        let prompt = build_system_prompt("");
+        // Should be well under 500 chars when there is no context
+        assert!(prompt.len() < 500, "Bare prompt is too long: {}", prompt.len());
+    }
 
     // ── parse_embedding ───────────────────────────────────────────────────
 

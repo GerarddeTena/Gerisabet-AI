@@ -19,18 +19,36 @@ pub async fn ask_gerisabet(
 ) -> Result<(), String> {
     log::debug!("ask_gerisabet: question={:?}", &question[..question.len().min(80)]);
 
-    let qdrant = QdrantStore::connect().await.map_err(|e| e.to_string())?;
-
-    let retrieval = RetrievalService::new(
-        OllamaClient::new().map_err(|e| e.to_string())?,
-        qdrant,
-    );
-
-    let context = retrieval
-        .build_context(&question)
-        .await
-        .map_err(|e| e.to_string())?
-        .unwrap_or_default();
+    // Attempt to build RAG context. If Qdrant or Ollama embeddings are unavailable
+    // (e.g. Qdrant not started, cold boot) we degrade gracefully to zero context
+    // rather than failing the entire request. The model will still answer from its
+    // own parametric knowledge.
+    let context = match QdrantStore::connect().await {
+        Ok(qdrant) => {
+            match OllamaClient::new() {
+                Ok(ollama) => {
+                    match RetrievalService::new(ollama, qdrant)
+                        .build_context(&question)
+                        .await
+                    {
+                        Ok(ctx) => ctx.unwrap_or_default(),
+                        Err(e) => {
+                            log::warn!("Context build failed, proceeding without RAG: {e}");
+                            String::new()
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::warn!("Ollama embed client unavailable, proceeding without RAG: {e}");
+                    String::new()
+                }
+            }
+        }
+        Err(e) => {
+            log::warn!("Qdrant unavailable, answering without RAG context: {e}");
+            String::new()
+        }
+    };
 
     let history = {
         let svc = state.0.lock().await;
