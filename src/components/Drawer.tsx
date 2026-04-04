@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
 import "@/styles/drawer.css";
-import { MenuIcon, HistoryIcon, IndexerIcon, DoctorIcon, ChatIcon } from "@/assets/icons";
+import { MenuIcon, HistoryIcon, IndexerIcon, DoctorIcon, ChatIcon, ConversationsIcon } from "@/assets/icons";
 
 const Drawer = memo(() => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -9,6 +9,7 @@ const Drawer = memo(() => {
   const navigationItems = useMemo(
     () => [
       { to: "/history", label: "History", icon: <HistoryIcon size="1.25rem" /> },
+      { to: "/resume", label: "Conversations", icon: <ConversationsIcon size="1.25rem" /> },
       { to: "/indexer", label: "Indexer", icon: <IndexerIcon size="1.25rem" /> },
       { to: "/doctor",  label: "Doctor",  icon: <DoctorIcon  size="1.25rem" /> },
       { to: "/",        label: "Chat",    icon: <ChatIcon    size="1.25rem" /> },

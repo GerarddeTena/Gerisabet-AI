@@ -33,6 +33,7 @@ export interface LocalCommandResult {
 export interface LocalCommandContext {
   sessionId: string
   model: string
+  chatHistory?: import('./message').ChatMessage[]
 }
 
 export interface LocalJSXCommandContext extends LocalCommandContext {

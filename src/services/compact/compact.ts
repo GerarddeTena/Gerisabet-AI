@@ -1,7 +1,7 @@
 import type { ChatMessage } from '@/types'
 import { invoke } from '@tauri-apps/api/core'
-import { estimateHistoryTokens } from '@utils/messages.ts'
-import { logError } from '@utils/log.ts'
+import { estimateHistoryTokens } from '@/utils/messages.ts'
+import { logError } from '@/utils/log.ts'
 
 export const MAX_CONTEXT_TOKENS = 8000
 export const COMPACT_THRESHOLD = 0.8

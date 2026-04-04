@@ -10,8 +10,6 @@ import { HashRouter } from "react-router-dom";
 import App from "./App";
 import { ModalProvider } from "./context/modalContext";
 import { NotificationsProvider } from "./context/notifications";
-import { StatsProvider } from "./context/stats";
-import { OverlayProvider } from "./context/overlayContext";
 import { QueuedMessageProvider } from "./context/QueuedMessageContext";
 import { loadPersistedSettings, persistSettings, initStateChangeHandlers } from "./state/onChangeAppState";
 import { registerAllCommands } from "./commands";
@@ -33,15 +31,11 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <HashRouter>
       <NotificationsProvider>
-        <StatsProvider>
-          <ModalProvider>
-            <OverlayProvider>
-              <QueuedMessageProvider>
-                <Bootstrap />
-              </QueuedMessageProvider>
-            </OverlayProvider>
-          </ModalProvider>
-        </StatsProvider>
+        <ModalProvider>
+          <QueuedMessageProvider>
+            <Bootstrap />
+          </QueuedMessageProvider>
+        </ModalProvider>
       </NotificationsProvider>
     </HashRouter>
   </React.StrictMode>,

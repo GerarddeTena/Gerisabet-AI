@@ -1,5 +1,5 @@
 import type { LocalCommand } from '@/types'
-import { getAvailableModels, formatModelName, saveLastModel } from '@utils/model/model.ts'
+import { getAvailableModels, formatModelName, saveLastModel } from '@/utils/model/model.ts'
 import { setAppState } from '@/state/AppStateStore.ts'
 
 const modelCommand: LocalCommand = {

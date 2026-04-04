@@ -1,6 +1,6 @@
 import type { ChatMessage } from '@/types'
 import type { SessionId } from '@/types'
-import { logError } from '@utils/log.ts'
+import { logError } from '@/utils/log.ts'
 
 interface MemoryEntry {
   sessionId: SessionId

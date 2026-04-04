@@ -32,7 +32,13 @@ export const InputForAi = ({
 export const InputSelectModel = ({
                                      model,
                                      changeEvent,
+                                     models,
                                  }: InputSelectModelProps) => {
+    const displayModels =
+        models && models.length > 0
+            ? models
+            : ['qwen2.5-coder:3b', 'llama3.2:3b', 'mistral:7b']
+
     return (
         <select
             id="model-select"
@@ -40,10 +46,9 @@ export const InputSelectModel = ({
             onChange={changeEvent}
             className="model-select g-input"
         >
-            <option value="qwen2.5-coder:3b">qwen2.5-coder:3b</option>
-            <option value="qwen2.5-coder:7b">qwen2.5-coder:7b</option>
-            <option value="llama3.2:3b">llama3.2:3b</option>
-            <option value="mistral:7b">mistral:7b</option>
+            {displayModels.map((m) => (
+                <option key={m} value={m}>{m}</option>
+            ))}
         </select>
     );
 };

@@ -1,5 +1,5 @@
-import type { LocalCommand } from '../../types/command'
-import { formatTokenSummary } from '../../token-tracker'
+import type { LocalCommand } from '@/types'
+import { formatTokenSummary } from '@/token-tracker.ts'
 
 const costCommand: LocalCommand = {
   name: 'cost',

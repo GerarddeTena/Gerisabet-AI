@@ -1,6 +1,6 @@
 import type { LocalCommand } from '@/types'
 import { invoke } from '@tauri-apps/api/core'
-import { logError } from '@utils/log.ts'
+import { logError } from '@/utils/log.ts'
 
 const renameCommand: LocalCommand = {
   name: 'rename',

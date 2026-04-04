@@ -11,6 +11,7 @@ export interface FormProps {
 export type InputSelectModelProps = {
   model: string;
   changeEvent: React.ChangeEventHandler<HTMLSelectElement>;
+  models?: string[];
 };
 
 export type LogEntry = { id: number; message: string; type: "info" | "success" | "skip" | "error" };

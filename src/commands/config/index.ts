@@ -1,5 +1,5 @@
 import type { LocalCommand } from '@/types'
-import { getSettings, setSetting } from '@utils/settings/settings.ts'
+import { getSettings, setSetting } from '@/utils/settings/settings.ts'
 import type { GerisabetSettings } from '@/types'
 
 const configCommand: LocalCommand = {
