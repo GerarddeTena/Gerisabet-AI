@@ -1,7 +1,7 @@
 //! Indexing service — orchestrates file/skill chunking and vector store ingestion.
 
-use crate::config::WORDS_PER_CHUNK;
-use crate::domain::document::{is_meaningful_chunk, split_into_chunks};
+use crate::config::{CHUNK_OVERLAP_SENTENCES, WORDS_PER_CHUNK};
+use crate::domain::document::{is_meaningful_chunk, split_into_chunks_sentence_aware};
 use crate::error::AppError;
 use crate::ports::embedder::Embedder;
 use crate::ports::file_reader::FileReader;
@@ -91,7 +91,7 @@ where
                 }
             };
 
-            let chunks = split_into_chunks(&doc.content, WORDS_PER_CHUNK);
+            let chunks = split_into_chunks_sentence_aware(&doc.content, WORDS_PER_CHUNK, CHUNK_OVERLAP_SENTENCES);
             let total = chunks.len();
             on_progress(IndexProgress::FileStart { file: file_name(path), total });
 
@@ -106,7 +106,12 @@ where
                     continue;
                 }
 
-                match self.embedder.embed(chunk).await {
+                // nomic-embed-text instruction prefix for asymmetric document search.
+                // Indexing with "search_document:" and querying with "search_query:"
+                // uses the model's instruction-tuned asymmetric search capability,
+                // dramatically improving cosine alignment between questions and answers.
+                let embed_text = format!("search_document: {chunk}");
+                match self.embedder.embed(&embed_text).await {
                     Ok(vector) => {
                         if let Err(e) = self.store.upsert_doc(chunk, &doc.path, vector).await {
                             log::warn!("Upsert failed chunk {}: {e}", i + 1);
@@ -177,7 +182,7 @@ where
                 }
             };
 
-            let chunks = split_into_chunks(&content, WORDS_PER_CHUNK);
+            let chunks = split_into_chunks_sentence_aware(&content, WORDS_PER_CHUNK, CHUNK_OVERLAP_SENTENCES);
             let total = chunks.len();
             on_progress(IndexProgress::FileStart { file: file_name(path), total });
 
@@ -193,7 +198,8 @@ where
                     continue;
                 }
 
-                match self.embedder.embed(chunk).await {
+                let embed_text = format!("search_document: {chunk}");
+                match self.embedder.embed(&embed_text).await {
                     Ok(vector) => {
                         if let Err(e) = self.store.upsert_skill(chunk, &skill_name, &skill_type, vector).await {
                             log::error!("Skill upsert failed: {e}");

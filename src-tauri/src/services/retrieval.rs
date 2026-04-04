@@ -1,6 +1,6 @@
 //! Retrieval service — semantic search and context assembly.
 
-use crate::config::{LIBRARY_THRESHOLD, SEARCH_LIMIT, SKILLS_THRESHOLD};
+use crate::config::{LIBRARY_SEARCH_LIMIT, LIBRARY_THRESHOLD, MAX_CONTEXT_CHARS, SKILLS_SEARCH_LIMIT, SKILLS_THRESHOLD};
 use crate::domain::search::SkillSearchResult;
 use crate::error::AppError;
 use crate::ports::embedder::Embedder;
@@ -22,11 +22,16 @@ impl<E: Embedder, V: VectorStore> RetrievalService<E, V> {
     /// Rules are always injected first; regular skills second; docs third.
     /// Returns `None` if both searches return empty results.
     pub async fn build_context(&self, question: &str) -> Result<Option<String>, AppError> {
-        let vector = self.embedder.embed(question).await?;
+        // nomic-embed-text asymmetric search: queries use "search_query:" and documents
+        // use "search_document:" (applied at index time). This instruction prefix
+        // dramatically improves cosine alignment between a user question (short,
+        // interrogative) and stored document chunks (long, declarative).
+        let query_text = format!("search_query: {question}");
+        let vector = self.embedder.embed(&query_text).await?;
 
         let (skill_results, doc_results) = tokio::join!(
-            self.store.search_skills(vector.clone(), SEARCH_LIMIT, SKILLS_THRESHOLD),
-            self.store.search_docs(vector, SEARCH_LIMIT, LIBRARY_THRESHOLD),
+            self.store.search_skills(vector.clone(), SKILLS_SEARCH_LIMIT, SKILLS_THRESHOLD),
+            self.store.search_docs(vector, LIBRARY_SEARCH_LIMIT, LIBRARY_THRESHOLD),
         );
 
         let skill_results = skill_results.unwrap_or_else(|e| {
@@ -65,36 +70,53 @@ impl<E: Embedder, V: VectorStore> RetrievalService<E, V> {
             let docs_text = doc_results
                 .iter()
                 .map(|r| {
-                    format!(
-                        "source: {}\nscore: {:.2}\ncontent: |\n  {}",
-                        r.file_path,
-                        r.score,
-                        r.text.lines().collect::<Vec<_>>().join("\n  ")
-                    )
+                    // Show only filename, not the full system path — cleaner and model-agnostic
+                    let filename = std::path::Path::new(&r.file_path)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("document");
+                    format!("[{}]\n{}", filename, r.text.trim())
                 })
                 .collect::<Vec<_>>()
-                .join("\n---\n");
+                .join("\n\n");
             parts.push(format!("=== DOCUMENTATION ===\n{docs_text}"));
         }
 
-        Ok(Some(parts.join("\n\n")))
+        let raw = parts.join("\n\n");
+
+        // Safety cap: truncate at MAX_CONTEXT_CHARS preserving highest-priority sections.
+        // Because RULES are assembled first, truncating at the end naturally keeps them intact.
+        let trimmed = if raw.len() > MAX_CONTEXT_CHARS {
+            log::warn!(
+                "RAG context truncated: {} chars → {} (context window protection)",
+                raw.len(),
+                MAX_CONTEXT_CHARS
+            );
+            // Find a word boundary to avoid mid-word cuts
+            let boundary = raw[..MAX_CONTEXT_CHARS]
+                .rfind(|c: char| c.is_whitespace())
+                .unwrap_or(MAX_CONTEXT_CHARS);
+            format!(
+                "{}\n\n[Context trimmed — showing highest-relevance sections only]",
+                &raw[..boundary]
+            )
+        } else {
+            raw
+        };
+
+        Ok(Some(trimmed))
     }
 }
 
+/// Format a slice of skill results into clean, model-readable text.
+/// Only shows the skill name and content — score and type are metadata the LLM
+/// does not benefit from seeing and that adds token noise.
 fn format_skills(skills: &[&SkillSearchResult]) -> String {
     skills
         .iter()
-        .map(|s| {
-            format!(
-                "skill_name: {}\nskill_type: {}\nscore: {:.2}\ncontent: |\n  {}",
-                s.skill_name,
-                s.skill_type,
-                s.score,
-                s.content.lines().collect::<Vec<_>>().join("\n  ")
-            )
-        })
+        .map(|s| format!("[{}]\n{}", s.skill_name, s.content.trim()))
         .collect::<Vec<_>>()
-        .join("\n---\n")
+        .join("\n\n")
 }
 
 #[cfg(test)]
