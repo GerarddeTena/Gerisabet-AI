@@ -1,14 +1,17 @@
-use std::sync::Mutex;
-use crate::embeddings::ChatHistoryMessage;
-
-pub static CHAT_HISTORY: Mutex<Vec<ChatHistoryMessage>> = Mutex::new(Vec::new());
-pub const MAX_HISTORY_MESSAGES: usize = 10;
-pub const SIMILARITY_THRESHOLD: f32 = 0.65;
-pub const SKILLS_SIMILARITY_THRESHOLD: f32 = 0.5;
-pub const SKILLS_TRACKER_PATH: &str = "C:\\Users\\Gerard\\qdrant_storage\\indexed_skills.json";
-
-mod indexing_logic;
-pub mod indexing_library;
+//! Tauri command handlers — thin controllers that delegate to services.
+//!
+//! No business logic lives here. Commands only:
+//! 1. Extract parameters from the Tauri IPC call
+//! 2. Lock/access application state
+//! 3. Delegate to a service
+//! 4. Map AppError → String for the Tauri boundary
 pub mod ai;
-pub mod indexing_skills;
-pub mod chat_history;
+pub mod chat;
+pub mod indexing;
+pub mod system;
+
+use crate::services::chat::ChatService;
+use tokio::sync::Mutex;
+
+/// Tauri managed state for the chat service.
+pub struct ChatState(pub Mutex<ChatService>);

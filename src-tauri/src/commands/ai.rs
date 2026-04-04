@@ -1,97 +1,49 @@
-use crate::commands::{CHAT_HISTORY, SIMILARITY_THRESHOLD, SKILLS_SIMILARITY_THRESHOLD};
-use crate::embeddings::{get_embedding, stream_ollama_response};
-use crate::qdrant_db::{get_client, search_context, search_skills, SkillSearchResult};
-use tauri::{AppHandle, Emitter};
+//! AI command handler — thin wrapper over RetrievalService + OrchestratorService.
 
-fn format_skill_section(skills: &[&SkillSearchResult]) -> String {
-    skills
-        .iter()
-        .map(|s| {
-            format!(
-                "skill_name: {}\nskill_type: {}\nscore: {:.2}\ncontent: |\n  {}",
-                s.skill_name,
-                s.skill_type,
-                s.score,
-                s.content.lines().collect::<Vec<_>>().join("\n  ")
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n---\n")
-}
+use crate::adapters::qdrant::QdrantStore;
+use crate::adapters::ollama::OllamaClient;
+use crate::commands::ChatState;
+use crate::config::MAX_HISTORY_MESSAGES;
+use crate::domain::orchestrator::OrchestratorConfig;
+use crate::services::retrieval::RetrievalService;
+use crate::services::orchestration::OrchestratorService;
+use tauri::{AppHandle, State};
 
 #[tauri::command]
-pub async fn ask_gerisabet(app: AppHandle, question: String, model: String) -> Result<(), String> {
-    println!("Querying knowledge base for: '{}'", question);
+pub async fn ask_gerisabet(
+    app: AppHandle,
+    state: State<'_, ChatState>,
+    question: String,
+    model: String,
+    orchestrators: Option<OrchestratorConfig>,
+) -> Result<(), String> {
+    log::debug!("ask_gerisabet: question={:?}", &question[..question.len().min(80)]);
 
-    let question_vector = get_embedding(&question).await?;
-    let q_client = get_client().await?;
+    let qdrant = QdrantStore::connect().await.map_err(|e| e.to_string())?;
 
-    let skill_results = search_skills(
-        &q_client,
-        question_vector.clone(),
-        2,
-        SKILLS_SIMILARITY_THRESHOLD,
-    )
-    .await
-    .unwrap_or_default();
-    let doc_results = search_context(&q_client, question_vector, 2, SIMILARITY_THRESHOLD)
+    let retrieval = RetrievalService::new(
+        OllamaClient::new().map_err(|e| e.to_string())?,
+        qdrant,
+    );
+
+    let context = retrieval
+        .build_context(&question)
         .await
+        .map_err(|e| e.to_string())?
         .unwrap_or_default();
 
-    if skill_results.is_empty() && doc_results.is_empty() {
-        return {
-            app.emit(
-                "ai_token",
-                "No encontré información relevante en los documentos para responder a tu pregunta.",
-            )
-            .ok();
-            app.emit("ai_done", "").ok();
-            Ok(())
-        };
-    }
-
-    let mut context_parts: Vec<String> = Vec::new();
-
-    let (rules, skills): (Vec<_>, Vec<_>) =
-        skill_results.iter().partition(|s| s.skill_type == "rules");
-
-    if !rules.is_empty() {
-        context_parts.push(format!(
-            "=== RULES (always follow) ===\n{}",
-            format_skill_section(&rules)
-        ));
-    }
-
-    if !skills.is_empty() {
-        context_parts.push(format!(
-            "=== SKILLS (use when relevant) ===\n{}",
-            format_skill_section(&skills)
-        ));
-    }
-
-    // === DOCUMENTATION ===
-    if !doc_results.is_empty() {
-        let docs_text = doc_results
-            .iter()
-            .map(|res| {
-                format!(
-                    "source: {}\nscore: {:.2}\ncontent: |\n  {}",
-                    res.file_path,
-                    res.score,
-                    res.text.lines().collect::<Vec<_>>().join("\n  ")
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n---\n");
-        context_parts.push(format!("=== DOCUMENTATION ===\n{}", docs_text));
-    }
-
-    let context = context_parts.join("\n\n");
     let history = {
-        let guard = CHAT_HISTORY.lock().unwrap();
-        guard.clone()
+        let svc = state.0.lock().await;
+        svc.recent_history(MAX_HISTORY_MESSAGES)
     };
 
-    stream_ollama_response(&question, context, &model, history, app.clone()).await?;
-    Ok(())
+    log::debug!("Context: {} chars, History: {} entries", context.len(), history.len());
+
+    let config = orchestrators.unwrap_or_default();
+
+    OrchestratorService::new(app, model, context, history, config)
+        .run(&question)
+        .await
+        .map_err(|e| e.to_string())
 }
+
