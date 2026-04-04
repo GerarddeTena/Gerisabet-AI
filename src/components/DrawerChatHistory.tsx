@@ -1,6 +1,8 @@
 import { memo, useCallback } from "react";
 import { ChatMessage } from "@/types/interfaces";
-import { useChatHistory } from "@/hooks/useChatHistory";
+import { useChatHistory as exportAsJSON} from "@/hooks/useChatHistory";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
+import { DownloadIcon, TrashIcon } from "@/assets/icons";
 
 interface DrawerChatHistoryProps {
   chatHistory: ChatMessage[];
@@ -13,10 +15,9 @@ const DrawerChatHistory = memo(({
   onClearHistory,
   onExportHistory,
 }: DrawerChatHistoryProps) => {
-  const { exportAsJSON } = useChatHistory();
 
   const handleExport = useCallback(() => {
-    exportAsJSON(chatHistory);
+    exportAsJSON();
     onExportHistory();
   }, [chatHistory, onExportHistory, exportAsJSON]);
 
@@ -38,14 +39,14 @@ const DrawerChatHistory = memo(({
           disabled={chatHistory.length === 0}
           className="drawer-action-button success"
         >
-          📥 Export as JSON
+          <DownloadIcon size="0.9em" /> Export as JSON
         </button>
         <button
           onClick={handleClear}
           disabled={chatHistory.length === 0}
           className="drawer-action-button danger"
         >
-          🗑️ Clear History
+          <TrashIcon size="0.9em" /> Clear History
         </button>
       </div>
 
@@ -64,8 +65,7 @@ const DrawerChatHistory = memo(({
             {chatHistory.slice(-5).map((msg) => (
               <li key={msg.id} className="chat-history-item">
                 <strong>{msg.role === "user" ? "You" : "GerisabetAI"}:</strong>
-                {msg.text.substring(0, 150)}
-                {msg.text.length > 150 ? "..." : ""}
+                 <MarkdownRenderer content={msg.content} className="md-response md-response-compact" />
               </li>
             ))}
           </ul>
@@ -84,3 +84,4 @@ const DrawerChatHistory = memo(({
 DrawerChatHistory.displayName = "DrawerChatHistory";
 
 export default DrawerChatHistory;
+

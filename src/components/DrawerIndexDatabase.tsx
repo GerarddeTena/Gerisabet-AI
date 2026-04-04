@@ -70,3 +70,4 @@ const DrawerIndexDatabase = memo(({ onIndexingChange }: DrawerIndexDatabaseProps
 DrawerIndexDatabase.displayName = "DrawerIndexDatabase";
 
 export default DrawerIndexDatabase;
+

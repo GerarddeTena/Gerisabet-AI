@@ -1,0 +1,177 @@
+/* ===================================================
+   ECOSISTEMA GERISABET — DESIGN SYSTEM
+   Theme tokens, typography, and utility classes
+   =================================================== */
+
+/* ---------- Dark theme (default) ---------- */
+:root {
+  --bg-app:      #09090b;
+  --bg-surface:  #121214;
+  --text-main:   #f4f4f5;
+  --text-muted:  #a1a1aa;
+  --border-ui:   #27272a;
+  --accent:      #8b5cf6;
+  --accent-ghost: rgba(139, 92, 246, 0.1);
+
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+}
+
+/* ---------- Light theme ---------- */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-app:       #fafafa;
+    --bg-surface:   #ffffff;
+    --text-main:    #18181b;
+    --text-muted:   #71717a;
+    --border-ui:    #e4e4e7;
+    --accent:       #7c3aed;
+    --accent-ghost: rgba(124, 58, 237, 0.08);
+  }
+}
+
+/* ---------- Typography ---------- */
+body,
+p,
+span,
+li,
+label,
+td,
+th,
+blockquote {
+  font-family: "Atkinson Hyperlegible", sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+pre,
+code,
+input,
+textarea,
+select,
+button {
+  font-family: "Iosevka", monospace;
+}
+
+/* ---------- App loading state ---------- */
+.app-loading {
+  display: flex;
+  height: 100vh;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  font-family: "Iosevka", monospace;
+  color: var(--text-muted);
+}
+
+/* ---------- Utility: Cards ---------- */
+.g-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-ui);
+  padding: 1.5rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.g-card.interactive:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-lg);
+}
+
+/* ---------- Utility: Buttons ---------- */
+.g-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: "Iosevka", monospace;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  transition:
+    background      0.2s ease,
+    border-color    0.2s ease,
+    color           0.2s ease,
+    box-shadow      0.2s ease;
+}
+
+.g-btn-primary {
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+}
+
+.g-btn-primary:hover:not(:disabled) {
+  background: #7c3aed;
+}
+
+.g-btn-outline {
+  background: transparent;
+  border: 1px solid var(--border-ui);
+  color: var(--text-main);
+}
+
+.g-btn-outline:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-ghost);
+}
+
+/* ---------- Utility: Inputs ---------- */
+.g-input {
+  width: 100%;
+  background: var(--bg-app);
+  border: 1px solid var(--border-ui);
+  color: var(--text-main);
+  padding: 0.75rem 1rem;
+  outline: none;
+  border-radius: var(--radius-sm);
+  transition: border-color 0.2s ease;
+}
+
+.g-input:focus {
+  border-color: var(--accent);
+}
+
+/* The chat textarea lives inside .chat-input-row pill container —
+   keep it borderless and transparent so the pill provides the border */
+.chat-input-row .g-input {
+  border: none;
+  background: transparent;
+  padding: 0.75rem 0.625rem;
+  border-radius: 0;
+  width: 100%;
+}
+
+.chat-input-row .g-input:focus {
+  border: none;
+  box-shadow: none;
+}
+
+/* Model select: override g-input full-width so it stays compact */
+.model-bar .g-input {
+  width: auto;
+  padding: 0.375rem 2rem 0.375rem 0.75rem;
+}
+
+/* ---------- Scrollbars (Webkit) ---------- */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-app);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-ui);
+  border-radius: 999px;
+}

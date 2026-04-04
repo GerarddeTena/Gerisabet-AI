@@ -29,7 +29,7 @@ export function useIndexer(
                 setChunkProgress({current: 0, total: data.total || 0, file: fileName});
                 setLogs(prev => [...prev, {
                     id: logIdRef.current++,
-                    message: `📄 Indexing: ${fileName}`,
+                    message: `Indexing: ${fileName}`,
                     type: "info"
                 }]);
             }
@@ -46,7 +46,7 @@ export function useIndexer(
                 setChunkProgress(prev => ({...prev, current: prev.total}));
                 setLogs(prev => [...prev, {
                     id: logIdRef.current++,
-                    message: `✅ Completed: ${fileName}`,
+                    message: `Completed: ${fileName}`,
                     type: "success"
                 }]);
             }
@@ -54,7 +54,7 @@ export function useIndexer(
             if (data.type === "file_skipped") {
                 setLogs(prev => [...prev, {
                     id: logIdRef.current++,
-                    message: `⏭ Already indexed: ${fileName}`,
+                    message: `Already indexed: ${fileName}`,
                     type: "skip"
                 }]);
             }
@@ -62,7 +62,7 @@ export function useIndexer(
             if (data.type === "file_error") {
                 setLogs(prev => [...prev, {
                     id: logIdRef.current++,
-                    message: `❌ Error: ${fileName}`,
+                    message: `Error: ${fileName}`,
                     type: "error"
                 }]);
             }
@@ -70,7 +70,7 @@ export function useIndexer(
             if (data.type === "cancelled") {
                 setLogs(prev => [...prev, {
                     id: logIdRef.current++,
-                    message: `🛑 Indexing cancelled`,
+                    message: `Indexing cancelled`,
                     type: "error"
                 }]);
                 setIsIndexing(false);
@@ -82,7 +82,7 @@ export function useIndexer(
                 onIndexingChange?.(false);
                 setLogs(prev => [...prev, {
                     id: logIdRef.current++,
-                    message: `🎉 Done — ${data.new_count ?? 0} chunks, ${data.skipped_count ?? 0} skipped`,
+                    message: `Done — ${data.new_count ?? 0} chunks, ${data.skipped_count ?? 0} skipped`,
                     type: "success"
                 }]);
             }
@@ -140,3 +140,4 @@ export function useIndexer(
         statusClass,
     } as const;
 }
+

@@ -1,19 +1,30 @@
 import {InputSelectModelProps} from "@/types/interfaces.ts";
 
+type InputForAiProps = {
+    msg: string;
+    changeEvent: React.ChangeEventHandler<HTMLTextAreaElement>;
+    keyDownEvent: React.KeyboardEventHandler<HTMLTextAreaElement>;
+    textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+    disabled?: boolean;
+};
+
 export const InputForAi = ({
                                msg,
                                changeEvent,
-                           }: {
-    msg: string;
-    changeEvent: React.ChangeEventHandler<HTMLInputElement>;
-}) => {
+                                keyDownEvent,
+                                textareaRef,
+                                disabled = false,
+                            }: InputForAiProps) => {
     return (
-        <input
-            type="text"
+        <textarea
             placeholder="Type your question ..."
-            className="GerisabetInput"
+            className="GerisabetInput g-input"
             value={msg}
             onChange={changeEvent}
+            onKeyDown={keyDownEvent}
+            ref={textareaRef}
+            rows={1}
+            disabled={disabled}
         />
     );
 };
@@ -27,7 +38,7 @@ export const InputSelectModel = ({
             id="model-select"
             value={model}
             onChange={changeEvent}
-            className="model-select"
+            className="model-select g-input"
         >
             <option value="qwen2.5-coder:3b">qwen2.5-coder:3b</option>
             <option value="qwen2.5-coder:7b">qwen2.5-coder:7b</option>
@@ -36,3 +47,4 @@ export const InputSelectModel = ({
         </select>
     );
 };
+

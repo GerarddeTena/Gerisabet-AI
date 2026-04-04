@@ -36,16 +36,16 @@ export default function DatabaseManager({onIndexingChange}: DatabaseManagerProps
     };
 
     return (
-        <div className="db-manager">
+        <div className="db-manager g-card interactive">
             <h2>Knowledge Base</h2>
             <p>Select a folder on your machine to inject its content into Gerisabet AI.</p>
 
             <div className="db-manager-button-group">
-                <button onClick={injectContext} disabled={isIndexing} className="btn-inject">
+                <button onClick={injectContext} disabled={isIndexing} className="btn-inject g-btn g-btn-primary">
                     {isIndexing ? "Processing and vectorizing..." : "Inject Context"}
                 </button>
                 {isIndexing && (
-                    <button onClick={cancelIndexing} className="btn-cancel">
+                    <button onClick={cancelIndexing} className="btn-cancel g-btn g-btn-outline">
                         Cancel process
                     </button>
                 )}
@@ -62,3 +62,4 @@ export default function DatabaseManager({onIndexingChange}: DatabaseManagerProps
         </div>
     );
 }
+

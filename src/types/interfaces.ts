@@ -1,29 +1,17 @@
 import React from "react";
-
-// ================================================================
-//                FORM INTERFACES AND TYPES
-// ================================================================
+export type { Role, ChatMessage, MessageMetadata } from './message';
+export type { ChatSession, UseChatHistoryReturn } from './session';
 
 export interface FormProps {
   disabled?: boolean;
-  chatHistory?: ChatMessage[];
-  onChatHistoryChange?: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
+  chatHistory?: import('./message').ChatMessage[];
+  onChatHistoryChange?: React.Dispatch<React.SetStateAction<import('./message').ChatMessage[]>>;
 }
 
 export type InputSelectModelProps = {
   model: string;
   changeEvent: React.ChangeEventHandler<HTMLSelectElement>;
 };
-
-export type ChatMessage = {
-  id: number;
-  role: "user" | "ai";
-  text: string;
-};
-
-// ==================================================================
-//               UI INDEXER INTERFACES AND TYPES
-// ==================================================================
 
 export type LogEntry = { id: number; message: string; type: "info" | "success" | "skip" | "error" };
 export type ChunkProgress = { current: number; total: number; file: string };
@@ -37,22 +25,16 @@ export interface IndexerUIProps {
   statusClass: string;
 }
 
-// ==================================================================
-//                 DATABASE MANAGER INTERFACES AND TYPES
-// ==================================================================
-
 export interface DatabaseManagerProps {
   onIndexingChange: (state: boolean) => void;
 }
 
 export interface DisplayResponsesProps {
-  history: ChatMessage[];
+  history: import('./message').ChatMessage[];
   isLoading?: boolean;
   className?: string;
 }
-// ==================================================================
-//                           HOOKS INTERFACES AND TYPES
-// ==================================================================
+
 export type ProgressEvent = {
   skipped_count: number;
   new_count: number;

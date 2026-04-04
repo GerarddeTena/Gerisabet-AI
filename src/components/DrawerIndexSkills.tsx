@@ -68,3 +68,4 @@ const DrawerIndexSkills = memo(({ onIndexingChange }: DrawerIndexSkillsProps) =>
 DrawerIndexSkills.displayName = "DrawerIndexSkills";
 
 export default DrawerIndexSkills;
+

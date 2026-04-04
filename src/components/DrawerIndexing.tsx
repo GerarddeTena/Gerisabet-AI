@@ -19,3 +19,4 @@ const DrawerIndexing = memo(({onIndexingChange }: DrawerIndexingProps) => {
 DrawerIndexing.displayName = "DrawerIndexing";
 
 export default DrawerIndexing;
+

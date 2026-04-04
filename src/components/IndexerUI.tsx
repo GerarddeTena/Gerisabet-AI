@@ -38,3 +38,4 @@ export default function IndexerUI({ isIndexing, chunkProgress, logs, logEndRef, 
     </>
   );
 }
+

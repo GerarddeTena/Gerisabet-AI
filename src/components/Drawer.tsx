@@ -1,100 +1,57 @@
-import { memo, useState, useCallback } from "react";
-import DrawerIndexing from "./DrawerIndexing";
-import DrawerChatHistory from "./DrawerChatHistory";
-import { ChatMessage } from "@/types/interfaces";
+import { memo, useCallback, useMemo, useState } from "react";
+import { NavLink } from "react-router-dom";
 import "@/styles/drawer.css";
+import { MenuIcon, HistoryIcon, IndexerIcon, DoctorIcon, ChatIcon } from "@/assets/icons";
 
-interface DrawerProps {
-  isIndexing: boolean;
-  onIndexingChange: (state: boolean) => void;
-  chatHistory: ChatMessage[];
-  onClearHistory: () => void;
-  onExportHistory: () => void;
-}
+const Drawer = memo(() => {
+  const [isExpanded, setIsExpanded] = useState(false);
 
-const Drawer = memo(({
-  isIndexing,
-  onIndexingChange,
-  chatHistory,
-  onClearHistory,
-  onExportHistory,
-}: DrawerProps) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"indexing" | "history">("indexing");
+  const navigationItems = useMemo(
+    () => [
+      { to: "/history", label: "History", icon: <HistoryIcon size="1.25rem" /> },
+      { to: "/indexer", label: "Indexer", icon: <IndexerIcon size="1.25rem" /> },
+      { to: "/doctor",  label: "Doctor",  icon: <DoctorIcon  size="1.25rem" /> },
+      { to: "/",        label: "Chat",    icon: <ChatIcon    size="1.25rem" /> },
+    ],
+    [],
+  );
 
   const toggleDrawer = useCallback(() => {
-    setIsOpen(prev => !prev);
-  }, []);
-
-  const closeDrawer = useCallback(() => {
-    setIsOpen(false);
+    setIsExpanded((prev) => !prev);
   }, []);
 
   return (
-    <>
-      {/* Drawer Toggle Button */}
-      <button
-        className="drawer-toggle"
-        onClick={toggleDrawer}
-        aria-label="Toggle drawer menu"
-        title="Open settings drawer"
-      >
-        <span className="drawer-icon">☰</span>
-      </button>
+    <aside
+      className={`drawer ${isExpanded ? "expanded" : "collapsed"}`}
+      aria-label="Application navigation"
+    >
+      <nav className="drawer-nav">
+        <button
+          type="button"
+          className="drawer-toggle drawer-nav-button"
+          onClick={toggleDrawer}
+          aria-label={isExpanded ? "Collapse drawer" : "Expand drawer"}
+          title={isExpanded ? "Collapse drawer" : "Expand drawer"}
+        >
+          <span className="drawer-nav-icon"><MenuIcon size="1.25rem" /></span>
+          {isExpanded && <span className="drawer-nav-label">Menu</span>}
+        </button>
 
-      {/* Overlay */}
-      {isOpen && (
-        <div className="drawer-overlay" onClick={closeDrawer} />
-      )}
-
-      {/* Drawer Container */}
-      <aside className={`drawer ${isOpen ? "open" : ""}`}>
-        {/* Drawer Header */}
-        <div className="drawer-header">
-          <h2>Settings</h2>
-          <button
-            className="drawer-close"
-            onClick={closeDrawer}
-            aria-label="Close drawer"
+        {navigationItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              `drawer-nav-link drawer-nav-button ${isActive ? "active" : ""}`
+            }
+            title={item.label}
           >
-            ✕
-          </button>
-        </div>
-
-        {/* Drawer Tabs */}
-        <div className="drawer-tabs">
-          <button
-            className={`drawer-tab ${activeTab === "indexing" ? "active" : ""}`}
-            onClick={() => setActiveTab("indexing")}
-          >
-            Indexing
-          </button>
-          <button
-            className={`drawer-tab ${activeTab === "history" ? "active" : ""}`}
-            onClick={() => setActiveTab("history")}
-          >
-            History
-          </button>
-        </div>
-
-        {/* Drawer Content */}
-        <div className="drawer-content">
-          {activeTab === "indexing" && (
-            <DrawerIndexing
-              isIndexing={isIndexing}
-              onIndexingChange={onIndexingChange}
-            />
-          )}
-          {activeTab === "history" && (
-            <DrawerChatHistory
-              chatHistory={chatHistory}
-              onClearHistory={onClearHistory}
-              onExportHistory={onExportHistory}
-            />
-          )}
-        </div>
-      </aside>
-    </>
+            <span className="drawer-nav-icon" aria-hidden="true">{item.icon}</span>
+            {isExpanded && <span className="drawer-nav-label">{item.label}</span>}
+          </NavLink>
+        ))}
+      </nav>
+    </aside>
   );
 });
 

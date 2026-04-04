@@ -137,6 +137,126 @@ a:hover {
     position: relative;
 }
 
+.app-shell {
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+}
+
+.app-content {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 980px;
+    min-height: 100vh;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 1rem calc(72px + 1.75rem);
+    gap: 1.25rem;
+}
+
+.title-link {
+    align-self: center;
+    display: inline-flex;
+}
+
+.app-view {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.chat-view {
+    justify-content: flex-start;
+}
+
+.page-view {
+    justify-content: flex-start;
+}
+
+.page-stack {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    animation: fadeSlideDown 0.35s ease-out both;
+}
+
+.page-intro {
+    width: 100%;
+    padding: 1.125rem 1.375rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.page-intro h2 {
+    font-size: 1rem;
+    margin-bottom: 0.375rem;
+}
+
+.page-intro p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+/* ===================================================
+   DOCTOR SCREEN
+   =================================================== */
+
+.doctor-results {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    margin-bottom: 1.25rem;
+}
+
+.doctor-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.875rem;
+    background: var(--bg-overlay);
+    border: 1px solid var(--border-muted);
+    border-radius: 8px;
+    font-size: 0.875rem;
+}
+
+.doctor-row--fail {
+    border-color: rgba(248, 81, 73, 0.3);
+    background: rgba(248, 81, 73, 0.05);
+}
+
+.doctor-icon {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.doctor-row .doctor-icon {
+    color: var(--success);
+}
+
+.doctor-row--fail .doctor-icon {
+    color: var(--error);
+}
+
+.doctor-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 8rem;
+}
+
+.doctor-detail {
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+}
+
 /* ===================================================
    TITLE — conic gradient that follows the mouse
    =================================================== */
@@ -155,13 +275,13 @@ a:hover {
 }
 
 .app-title {
-    font-size: 3.25rem;
+    font-size: 5rem;
     font-weight: 800;
     letter-spacing: -0.5px;
     --mx: 50%;
     --my: 50%;
     background: radial-gradient(
-            ellipse at var(--mx) var(--my),
+            circle at var(--mx) var(--my),
             #24c8db 0%,
             #2fc0d8 12%,
             #5591e4 28%,
@@ -174,7 +294,7 @@ a:hover {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    cursor: default;
+    cursor: pointer;
     transition: --mx 0.22s ease-out,
     --my 0.22s ease-out;
     animation: titleFadeIn 0.7s ease-out both;
@@ -368,18 +488,36 @@ textarea::placeholder {
 /* Chat text input — borderless inside the pill container */
 .GerisabetInput {
     width: 100%;
-    padding: 0.5rem 0.625rem;
+    min-height: 3rem;
+    max-height: 12rem;
+    padding: 0.75rem 0.625rem;
     background: transparent;
     border: none;
     color: var(--text-primary);
     font-size: 0.9375rem;
+    line-height: 1.6;
     transition: none;
+    resize: none;
+    overflow-y: hidden;
 }
 
 .GerisabetInput:focus {
     box-shadow: none;
     border: none;
     background: transparent;
+}
+
+.GerisabetInput::-webkit-scrollbar {
+    width: 6px;
+}
+
+.GerisabetInput::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.GerisabetInput::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 999px;
 }
 
 /* Model selector */
@@ -437,7 +575,7 @@ textarea::placeholder {
 /* Pill-shaped input container */
 .chat-input-row {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 0.5rem;
     padding: 0.375rem 0.5rem 0.375rem 1rem;
     background: var(--bg-surface);
@@ -451,6 +589,11 @@ textarea::placeholder {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12),
     0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.chat-submit-button {
+    align-self: flex-end;
+    min-width: 6.5rem;
 }
 
 /* ===================================================
@@ -564,6 +707,7 @@ textarea::placeholder {
     margin: 0.4rem 0;
     font-size: 0.9375rem;
     line-height: 1.75;
+    white-space: pre-wrap;
 }
 
 .md-response pre {
@@ -598,6 +742,7 @@ textarea::placeholder {
 .md-response li {
     margin: 0.2rem 0;
     font-size: 0.9375rem;
+    white-space: pre-wrap;
 }
 
 .md-response h1, .md-response h2, .md-response h3 {
@@ -610,6 +755,27 @@ textarea::placeholder {
     margin: 0.5rem 0;
     padding-left: 0.875rem;
     color: var(--text-secondary);
+    white-space: pre-wrap;
+}
+
+.md-response > :first-child {
+    margin-top: 0;
+}
+
+.md-response > :last-child {
+    margin-bottom: 0;
+}
+
+.md-response-compact p,
+.md-response-compact li,
+.md-response-compact blockquote,
+.md-response-compact code {
+    font-size: 0.8125rem;
+}
+
+.md-response-compact pre {
+    margin: 0.5rem 0 0;
+    padding: 0.75rem;
 }
 
 /* ===================================================
@@ -826,4 +992,26 @@ textarea::placeholder {
     border-color: #f87171;
     color: #fff;
     box-shadow: 0 0 18px rgba(220, 38, 38, 0.4);
+}
+
+@media (max-width: 768px) {
+    .app-content {
+        padding: 1.5rem 1rem 1rem calc(64px + 1.25rem);
+    }
+}
+
+@media (max-width: 480px) {
+    .app-content {
+        padding: 1.25rem 0.875rem 0.875rem calc(58px + 1rem);
+    }
+
+    .page-intro,
+    .db-manager {
+        padding: 1rem;
+    }
+
+    .db-manager-button-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
 }

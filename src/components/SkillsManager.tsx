@@ -33,16 +33,16 @@ export default function SkillsManager({ onIndexingChange }: Props) {
   };
 
   return (
-    <div className="db-manager">
+    <div className="db-manager g-card interactive">
       <h2>Skills</h2>
       <p>Select a folder containing Markdown skill files to index into Gerisabet AI.</p>
 
       <div className="db-manager-button-group">
-        <button onClick={indexSkills} disabled={isIndexing} className="btn-inject">
+        <button onClick={indexSkills} disabled={isIndexing} className="btn-inject g-btn g-btn-primary">
           {isIndexing ? "Processing and vectorizing..." : "Index Skills"}
         </button>
         {isIndexing && (
-          <button onClick={cancelIndexing} className="btn-cancel">
+          <button onClick={cancelIndexing} className="btn-cancel g-btn g-btn-outline">
             Cancel process
           </button>
         )}
@@ -59,4 +59,5 @@ export default function SkillsManager({ onIndexingChange }: Props) {
     </div>
   );
 }
+
 
