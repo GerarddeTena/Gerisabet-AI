@@ -105,6 +105,15 @@ export function CrossIcon({ size = D, ...p }: IconProps) {
   )
 }
 
+export function ConversationsIcon({ size = D, ...p }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}>
+      <path d="M17 8h2a2 2 0 0 1 2 2v7l-4-2H9a2 2 0 0 1-2-2v-1" />
+      <path d="M3 4h11a2 2 0 0 1 2 2v7l-4-2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
+    </svg>
+  )
+}
+
 export function WarningIcon({ size = D, ...p }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}>

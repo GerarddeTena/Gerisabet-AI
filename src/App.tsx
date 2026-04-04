@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { listen } from "@tauri-apps/api/event";
 import Layout from "@/layout/Layout";
 import ChatHistoryPage from "@/pages/ChatHistory";
-import { Indexer, Doctor } from "./screens";
+import { Indexer, Doctor, ResumeConversation } from "./screens";
 import { REPL } from "./screens/REPL";
 import { ChatMessage as LegacyMessage } from "./types/interfaces";
 import { useChatHistory } from "@/hooks/useChatHistory";
@@ -11,12 +11,14 @@ import { useAppState } from "./hooks/useAppState";
 
 export default function App() {
     const {
+        sessions,
         messages,
         isLoading,
         saveMessage,
         finalizeMessage,
         deleteSession,
         createSession,
+        selectSession,
         activeSession,
     } = useChatHistory();
 
@@ -141,6 +143,18 @@ export default function App() {
                 <Route
                     path="doctor"
                     element={<Doctor />}
+                />
+                <Route
+                    path="resume"
+                    element={
+                        <ResumeConversation
+                            sessions={sessions}
+                            activeSessionId={activeSession?.id ?? null}
+                            onSelect={selectSession}
+                            onNewConversation={createSession}
+                            onDelete={deleteSession}
+                        />
+                    }
                 />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

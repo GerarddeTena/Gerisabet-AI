@@ -27,6 +27,8 @@ import { TokenDisplay } from '../components/TokenDisplay'
 import { ReasoningDisplay } from '../components/ReasoningDisplay'
 import { OrchestratorPanel } from '../components/OrchestratorPanel'
 import { HourglassIcon, BoltIcon } from '../assets/icons'
+import { runAutoCompact } from '../services/compact/autoCompact'
+import { getSuggestionsForContext, shouldShowSuggestions } from '../services/prompts/PromptSuggestion'
 
 const CHAT_INPUT_MAX_HEIGHT = 192
 
@@ -56,9 +58,16 @@ const REPL = memo(({ chatHistory, onChatHistoryChange, disabled = false }: REPLP
   const unlistenTokenRef = useRef<(() => void) | null>(null)
   const unlistenDoneRef = useRef<(() => void) | null>(null)
   const unlistenThinkingRef = useRef<(() => void) | null>(null)
+  // Keep a live ref to chatHistory so async handlers always see the latest value
+  const chatHistoryRef = useRef(chatHistory)
 
   const appState = useAppState()
   const { isSlash, suggestions, matchedCommand } = useSlashCommands(question)
+
+  // Keep chatHistoryRef in sync so async handlers use the latest history
+  useEffect(() => {
+    chatHistoryRef.current = chatHistory
+  }, [chatHistory])
 
   const orchestratorConfig: OrchestratorConfig = appState.orchestratorConfig
 
@@ -127,6 +136,7 @@ const REPL = memo(({ chatHistory, onChatHistoryChange, disabled = false }: REPLP
         const result = await cmd.execute(args, {
           sessionId: getSessionId(),
           model: selectModel,
+          chatHistory: chatHistoryRef.current,
         })
         setCommandResult(result)
         return true
@@ -252,22 +262,23 @@ const REPL = memo(({ chatHistory, onChatHistoryChange, disabled = false }: REPLP
       unlistenDoneRef.current = await listen<string>('ai_done', async (event) => {
         const fullContent = event.payload
         if (fullContent) {
-          trackTokenUsage(selectModel, trimmed.length, fullContent.length)
-          setAppState((prev) => ({
-            ...prev,
-            stats: {
-              ...prev.stats,
-              totalTokensIn: prev.stats.totalTokensIn + Math.ceil(trimmed.length / 4),
-              totalTokensOut: prev.stats.totalTokensOut + Math.ceil(fullContent.length / 4),
-              requestCount: prev.stats.requestCount + 1,
-            },
-          }))
+          trackTokenUsage(
+            selectModel,
+            Math.ceil(trimmed.length / 4),
+            Math.ceil(fullContent.length / 4)
+          )
         }
         if (isMountedRef.current) {
           setIsLoading(false)
           setIsThinking(false)
         }
         cleanup()
+
+        // Run auto-compact after the response is complete
+        const latestHistory = chatHistoryRef.current
+        runAutoCompact(latestHistory, selectModel, (compacted) => {
+          if (isMountedRef.current) onChatHistoryChange(compacted)
+        }).catch(() => {})
       })
 
       try {
@@ -299,7 +310,11 @@ const REPL = memo(({ chatHistory, onChatHistoryChange, disabled = false }: REPLP
     <>
       <div className="model-bar">
         <label htmlFor="model-select">Model:</label>
-        <InputSelectModel model={selectModel} changeEvent={handleModelChange} />
+        <InputSelectModel
+          model={selectModel}
+          changeEvent={handleModelChange}
+          models={appState.availableModels.filter((m) => !m.includes('embed') && !m.includes('nomic'))}
+        />
         <button
           type="button"
           className={`g-btn${orchestratorConfig.enable_reasoning || orchestratorConfig.sub_orchestrators.length > 0 ? ' g-btn-active' : ''}`}
@@ -341,6 +356,21 @@ const REPL = memo(({ chatHistory, onChatHistoryChange, disabled = false }: REPLP
           >
             ×
           </button>
+        </div>
+      )}
+
+      {!isLoading && shouldShowSuggestions(chatHistory) && (
+        <div className="suggestion-chips" aria-label="Suggested prompts">
+          {getSuggestionsForContext(chatHistory).map((suggestion) => (
+            <button
+              key={suggestion}
+              className="suggestion-chip g-btn"
+              onClick={() => setQuestion(suggestion)}
+              type="button"
+            >
+              {suggestion}
+            </button>
+          ))}
         </div>
       )}
 

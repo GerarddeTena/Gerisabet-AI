@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { DatabaseManager, SkillsManager } from '../components'
+import { SkillsBrowser } from '../components/SkillsBrowser'
 import { setAppState } from '../state/AppStateStore'
 
 const Indexer = memo(() => {
@@ -16,6 +17,10 @@ const Indexer = memo(() => {
 
       <DatabaseManager onIndexingChange={handleIndexingChange} />
       <SkillsManager onIndexingChange={handleIndexingChange} />
+
+      <section className="g-card">
+        <SkillsBrowser />
+      </section>
     </div>
   )
 })
